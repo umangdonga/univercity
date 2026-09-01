@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@theme {
+  --font-poppins: "Poppins", sans-serif;
+  --color-campus-navy: #263D88;
+  --color-campus-blue: #53AADF;
+  --color-campus-light-blue: #BADDF2;
+  --color-campus-dark: #101214;
+  --color-campus-red: #FF0000;
+  --color-campus-bg: #F4F7FB;
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  background-color: #F4F7FB;
+  color: #101214;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Custom scrollbars for compact UI */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #BADDF2;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #53AADF;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.05); }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s infinite ease-in-out;
+}
