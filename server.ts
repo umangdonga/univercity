@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
+import { GoogleGenAI } from '@google/genai';
 
 dotenv.config();
 
@@ -9,6 +10,18 @@ const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+
+// Lazy-initialize Gemini AI Client
+let aiClient: GoogleGenAI | null = null;
+function getGeminiClient(): GoogleGenAI | null {
+  if (!process.env.GEMINI_API_KEY) {
+    return null;
+  }
+  if (!aiClient) {
+    aiClient = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  }
+  return aiClient;
+}
 
 // In-memory store for session / oauth states
 const authSessions = new Map<string, any>();
@@ -29,6 +42,150 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     timestamp: new Date().toISOString(),
     googleOAuthConfigured: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+    geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
+    googleMapsConfigured: Boolean(process.env.GOOGLE_MAPS_API_KEY),
+  });
+});
+
+// Google Maps Config Endpoint
+app.get('/api/maps/config', (req, res) => {
+  res.json({
+    apiKey: process.env.GOOGLE_MAPS_API_KEY || '',
+    defaultCenter: { lat: 12.9716, lng: 77.5946 }, // University Campus coordinates
+    zoom: 17,
+  });
+});
+
+// 2. Campus AI Chatbot Endpoint with Gemini 3.7 Flash
+app.post('/api/ai/chat', async (req, res) => {
+  const { message, history = [], userRole = 'student' } = req.body;
+
+  if (!message || typeof message !== 'string') {
+    return res.status(400).json({ error: 'Message is required' });
+  }
+
+  const campusSystemPrompt = `You are "CampusAI", the intelligent, friendly, and hyper-accurate smart campus assistant for the Campus Connect University Platform.
+Current User Role: ${userRole}.
+
+CAMPUS KNOWLEDGE BASE:
+1. BUILDINGS & ROOMS:
+   - Main Academic Building: Ground Floor (Student Affairs, Admin Office, Dean Office), 1st Floor (Computer Lab 101-104), 2nd Floor (Lecture Hall A-1, A-2), 3rd Floor (Classroom B 304, Seminar Hall).
+   - Science Block B: 3rd Floor houses Classroom B 304 and the AI/Robotics Innovation Lab.
+   - Knowledge Tower: Houses Central Library (2nd & 3rd floors, 50,000+ books, 24/7 quiet study cubicles, RFID kiosk), Conference Center.
+   - Canteen Complex: Near Sports Arena & North Gate.
+   - Hostels: Boys Hostel Block A (Warden: Dr. R. Verma, +1-555-0199) & Girls Hostel Block B (Warden: Dr. S. Rao, +1-555-0198). Curfew: 9:30 PM.
+   - Parking: North Gate Ground Lot (6 slots currently vacant, EV chargers available).
+   - Sports Complex: Olympic size swimming pool, basketball court, indoor badminton.
+
+2. FOOD & DINING:
+   - S Y Cafe: Ground floor Canteen Complex. Open 8:00 AM - 9:00 PM. Known for artisan espresso, fresh avocado toast ($4.50), South Indian crispy masala dosa ($3.80), and fresh fruit smoothies.
+   - UNIQUE Canteen: Open 7:30 AM - 10:00 PM. High-speed meal thali, chicken/paneer rolls, pasta, and snacks.
+
+3. BUS & TRANSPORT:
+   - Route 1: North City Express via Ring Road. Bus #12 (KA-01-F-8821). Next departure in 8 mins from Gate A.
+   - Route 4: Tech Park & Metro Hub Shuttle. Every 15 mins.
+   - Digital Bus Pass: Students can register instantly via the Bus Service page.
+
+4. ACADEMICS & ADMISSIONS:
+   - Programs: BCA, B.Tech CS/AI, M.Des (Master of Design), MBA, Data Science.
+   - Admission Counseling: Inquiries & official campus tour passes can be booked in the Admission Inquiry section.
+
+5. LIBRARY POLICIES:
+   - Standard checkout: 14 days for students, 30 days for faculty. Fine is $0.50/day after due date. Instant renewals available via the Library screen.
+
+FORMATTING RULES:
+- Keep answers concise, clear, and easy to read on mobile.
+- Use bullet points and bold highlights.
+- Suggest 1 to 3 helpful short follow-up action chips when relevant (e.g., "Navigate to B 304", "Open Canteen Menu", "View Bus Schedule", "Book Admission Pass", "Renew Book").`;
+
+  try {
+    const ai = getGeminiClient();
+    if (ai) {
+      // Use official @google/genai format
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.7-flash',
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: `${campusSystemPrompt}\n\nUser Conversation Context:\n${(history || [])
+                  .map((h: any) => `${h.role}: ${h.text}`)
+                  .join('\n')}\n\nUser: ${message}`,
+              },
+            ],
+          },
+        ],
+      });
+
+      const responseText = response.text || 'I am ready to help you navigate campus life. How else can I assist you?';
+
+      // Parse suggestions
+      const suggestions: string[] = [];
+      if (message.toLowerCase().includes('b 304') || message.toLowerCase().includes('class') || message.toLowerCase().includes('navigate') || message.toLowerCase().includes('where')) {
+        suggestions.push('Navigate to B 304', 'View 3D Campus Map');
+      }
+      if (message.toLowerCase().includes('canteen') || message.toLowerCase().includes('food') || message.toLowerCase().includes('eat') || message.toLowerCase().includes('cafe')) {
+        suggestions.push('Open S Y Cafe Menu', 'Check Dining Reviews');
+      }
+      if (message.toLowerCase().includes('bus') || message.toLowerCase().includes('transport') || message.toLowerCase().includes('route')) {
+        suggestions.push('View Bus Timings', 'Get Digital Bus Pass');
+      }
+      if (message.toLowerCase().includes('library') || message.toLowerCase().includes('book')) {
+        suggestions.push('Open Library', 'Check Overdue Books');
+      }
+      if (suggestions.length === 0) {
+        suggestions.push('Campus 3D Map', 'Canteen Menus', 'Bus Timings');
+      }
+
+      return res.json({
+        reply: responseText,
+        source: 'gemini-3.7-flash',
+        suggestions: suggestions.slice(0, 3),
+      });
+    }
+  } catch (err: any) {
+    console.warn('Gemini API call failed, falling back to smart local knowledge engine:', err.message);
+  }
+
+  // Smart Contextual Knowledge Fallback
+  const q = message.toLowerCase();
+  let reply = '';
+  let suggestions: string[] = ['Campus 3D Map', 'Canteen Menus', 'Bus Timings'];
+
+  if (q.includes('b 304') || q.includes('b304') || q.includes('classroom') || (q.includes('where') && q.includes('class'))) {
+    reply = `📍 **Classroom B 304** is located in **Science Block B** on the **3rd Floor (East Wing)**.\n\n• **Walking time:** ~3 mins (140m from Main Entrance)\n• **Equipment:** Smart 4K Projector, Hybrid Audio, AC\n• **Current Status:** Advanced Algorithms lecture scheduled at 11:00 AM.\n\nTap below to start real-time turn-by-turn navigation!`;
+    suggestions = ['Navigate to B 304', 'View Science Block B', 'Show Floor Plan'];
+  } else if (q.includes('canteen') || q.includes('food') || q.includes('cafe') || q.includes('lunch') || q.includes('eat') || q.includes('sy cafe')) {
+    reply = `🍽️ **Campus Dining Overview:**\n\n1. **S Y Cafe (Ground Floor Canteen Complex):**\n   • Popular for: Artisan Espresso ($2.50), Crispy Masala Dosa ($3.80), Avocado Toast ($4.50).\n   • Rating: 4.8 ⭐ (140+ reviews)\n   • Timings: 8:00 AM – 9:00 PM\n\n2. **UNIQUE Canteen:**\n   • Hot Meal Thali ($5.00), Chicken/Paneer Kathi Rolls.\n   • Timings: 7:30 AM – 10:00 PM`;
+    suggestions = ['Open S Y Cafe Menu', 'View UNIQUE Canteen', 'Rate Canteen'];
+  } else if (q.includes('bus') || q.includes('route') || q.includes('shuttle') || q.includes('timing') || q.includes('transport')) {
+    reply = `🚌 **Live Campus Bus Status:**\n\n• **Route 1 (North City Express):** Bus #12 departing from Gate A in **8 minutes** (14 seats available).\n• **Route 4 (Metro Hub Shuttle):** Next trip in **15 minutes**.\n• **Digital Bus Pass:** You can verify and show your student QR bus pass directly on your phone.`;
+    suggestions = ['View Bus Schedules', 'Show Bus Pass', 'Live Route Tracking'];
+  } else if (q.includes('library') || q.includes('book') || q.includes('fine') || q.includes('due') || q.includes('knowledge tower')) {
+    reply = `📚 **Knowledge Tower Central Library:**\n\n• **Location:** 2nd & 3rd Floor, Knowledge Tower\n• **Timings:** 8:00 AM – 11:00 PM (Reading cubicles open 24/7 during exam weeks)\n• **Loan Policy:** 14 days per book. Fine for overdue items is $0.50/day.\n• You can renew your issued books or clear overdue notices in 1 tap.`;
+    suggestions = ['Open Library Books', 'Renew Issued Books', 'Search Catalog'];
+  } else if (q.includes('hostel') || q.includes('room') || q.includes('warden') || q.includes('curfew')) {
+    reply = `🏢 **Hostel & Residence Desk:**\n\n• **Boys Hostel (Block A):** Warden Dr. R. Verma (+1-555-0199)\n• **Girls Hostel (Block B):** Warden Dr. S. Rao (+1-555-0198)\n• **Curfew:** 9:30 PM (Biometric entry logs)\n• **Amenities:** High-speed Wi-Fi, laundry facilities, study lounges, 24/7 power backup.`;
+    suggestions = ['View Hostel Blocks', 'Contact Warden', 'Hostel Rules'];
+  } else if (q.includes('admission') || q.includes('tour') || q.includes('appointment') || q.includes('counseling') || q.includes('course')) {
+    reply = `🎓 **Admissions & Counseling Office:**\n\n• **Location:** Ground Floor, Admin Block (Gate B)\n• **Hours:** Mon–Sat 9:00 AM – 5:00 PM\n• **Available Programs:** BCA, B.Tech (CS, AI & Data Science), M.Des, MBA.\n• You can book a priority 1-on-1 counseling slot and download your official visitor gate pass.`;
+    suggestions = ['Book Counseling Tour', 'View Course Catalog', 'Admission Pass'];
+  } else if (q.includes('parking') || q.includes('car') || q.includes('slot')) {
+    reply = `🚗 **Parking Availability:**\n\n• **North Gate Smart Parking:** **6 Vacant General Slots** available right now.\n• **EV Charging:** 2 fast DC chargers active on Row B.\n• **Faculty Reserved:** Green zone near Block A.`;
+    suggestions = ['View Parking Map', 'Navigate to North Gate'];
+  } else if (q.includes('sos') || q.includes('help') || q.includes('emergency') || q.includes('security') || q.includes('contact')) {
+    reply = `🚨 **Emergency & Campus Support:**\n\n• **24/7 Security Control Room:** +1 (555) 911-CAMP\n• **Medical Health Center:** Ground Floor, Science Block B\n• **Student Grievance Desk:** support@university.edu\n\nTap the button below for immediate SOS assistance.`;
+    suggestions = ['Emergency SOS', 'Call Security', 'Help Center'];
+  } else {
+    reply = `👋 Hello! I am your **CampusAI Assistant**.\n\nI can help you with:\n• 🗺️ **Turn-by-turn Navigation** to any classroom, lab, or office\n• 🍔 **Canteen Menus & Dining Reviews** (S Y Cafe & UNIQUE)\n• 🚌 **Live Bus Schedules & Digital Bus Pass**\n• 📚 **Library Books & Overdue Clearance**\n• 🏢 **Hostel Room Allotments & Rules**\n• 🎓 **Course Catalogs & Admission Appointments**\n\nHow can I help you today?`;
+    suggestions = ['Navigate to Classroom', 'Check Canteen Today', 'Bus Timings', 'Library Books'];
+  }
+
+  res.json({
+    reply,
+    source: 'campus-knowledge-engine',
+    suggestions,
   });
 });
 

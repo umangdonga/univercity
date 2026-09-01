@@ -19,7 +19,9 @@ import { AppointmentPassModal } from './components/common/AppointmentPassModal';
 import { BusPassModal } from './components/common/BusPassModal';
 import { NotificationDetailModal } from './components/common/NotificationDetailModal';
 import { Toast } from './components/common/Toast';
-import { Smartphone, Monitor, ShieldAlert, Sparkles } from 'lucide-react';
+import { CampusAIChatbot } from './components/ai/CampusAIChatbot';
+import { ChatFloatingButton } from './components/ai/ChatFloatingButton';
+import { Smartphone, Monitor, Bot } from 'lucide-react';
 
 const MainAppContent: React.FC = () => {
   const {
@@ -33,11 +35,12 @@ const MainAppContent: React.FC = () => {
   } = useApp();
 
   const [deviceView, setDeviceView] = useState<'mobile' | 'responsive'>('mobile');
+  const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
 
   if (!user.isAuthenticated) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="w-full max-w-md mx-auto min-h-screen">
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-0 sm:p-4">
+        <div className="w-full max-w-md mx-auto min-h-screen sm:min-h-0">
           <AuthScreen />
         </div>
       </div>
@@ -106,10 +109,19 @@ const MainAppContent: React.FC = () => {
 
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setIsChatOpen(true)}
+            className="px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-[#263D88] text-white hover:bg-[#53AADF] transition-all cursor-pointer shadow-xs"
+            title="Open CampusAI Assistant"
+          >
+            <Bot className="w-3.5 h-3.5" />
+            <span className="hidden xs:inline">CampusAI</span>
+          </button>
+
+          <button
             onClick={() => setDeviceView('mobile')}
             className={`px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
               deviceView === 'mobile'
-                ? 'bg-[#263D88] text-white shadow-xs'
+                ? 'bg-slate-700 text-white shadow-xs'
                 : 'bg-slate-800 text-slate-400 hover:text-white'
             }`}
           >
@@ -121,7 +133,7 @@ const MainAppContent: React.FC = () => {
             onClick={() => setDeviceView('responsive')}
             className={`px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
               deviceView === 'responsive'
-                ? 'bg-[#263D88] text-white shadow-xs'
+                ? 'bg-slate-700 text-white shadow-xs'
                 : 'bg-slate-800 text-slate-400 hover:text-white'
             }`}
           >
@@ -132,7 +144,7 @@ const MainAppContent: React.FC = () => {
       </header>
 
       {/* Main Canvas Area */}
-      <div className="w-full flex-1 flex items-center justify-center p-0 sm:p-6 lg:p-8 relative">
+      <div className="w-full flex-1 flex items-center justify-center p-0 sm:p-4 lg:p-6 relative">
         {/* Left Side Showcase on Desktop when in Mobile View (Matching Design HTML) */}
         {deviceView === 'mobile' && (
           <div className="hidden xl:flex absolute top-12 left-10 2xl:left-16 flex-col gap-6 text-[#263D88] max-w-xs z-10 select-none animate-fadeIn">
@@ -151,7 +163,7 @@ const MainAppContent: React.FC = () => {
                 High-Fidelity Student Hub
               </h2>
               <p className="text-sm text-[#101214]/70 leading-relaxed">
-                All university services integrated into a single touchpoint. Navigate 3D indoor maps, study, check buses, and eat with ease.
+                All university services integrated into a single touchpoint. Navigate Google Maps & 3D indoor blocks, ask CampusAI, manage bus routes, library, and canteen menus.
               </p>
 
               <div className="flex flex-wrap gap-2 pt-1">
@@ -162,7 +174,10 @@ const MainAppContent: React.FC = () => {
                   FACULTY READY
                 </span>
                 <span className="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-[10px] font-bold border border-[#263D88]/20 shadow-xs text-[#263D88]">
-                  GUEST ACCESS
+                  CAMPUS AI CHATBOT
+                </span>
+                <span className="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-[10px] font-bold border border-[#263D88]/20 shadow-xs text-[#263D88]">
+                  GOOGLE MAPS
                 </span>
               </div>
             </div>
@@ -171,19 +186,25 @@ const MainAppContent: React.FC = () => {
 
         {/* The Mobile App Shell / Expanded View */}
         <div
-          className={`w-full transition-all duration-300 relative bg-white ${
+          className={`w-full transition-all duration-300 relative bg-white flex flex-col ${
             deviceView === 'mobile'
-              ? 'max-w-[400px] sm:w-[390px] min-h-[740px] sm:h-[820px] my-0 sm:my-2 sm:rounded-[40px] shadow-2xl sm:border-[8px] sm:border-[#101214] flex flex-col overflow-hidden'
+              ? 'max-w-[420px] sm:w-[400px] h-[100dvh] sm:h-[840px] my-0 sm:my-2 sm:rounded-[36px] shadow-2xl sm:border-[6px] sm:border-[#101214] overflow-hidden'
               : 'max-w-4xl shadow-2xl rounded-2xl border border-slate-200 overflow-hidden min-h-[850px]'
           }`}
         >
           {/* Scrollable Screen Content */}
-          <div className="flex-1 overflow-y-auto relative" style={{ scrollbarWidth: 'none' }}>
+          <div className="flex-1 overflow-y-auto relative" style={{ scrollbarWidth: 'thin' }}>
             {renderTabContent()}
           </div>
 
-          {/* Global Bottom Navigation (hide when search or sub-service is open) */}
+          {/* Sticky Global Bottom Navigation (hide when search or sub-service is open) */}
           {!isSearchOpen && !activeService && <BottomNav />}
+
+          {/* Floating AI Chatbot trigger button */}
+          {!isChatOpen && <ChatFloatingButton onClick={() => setIsChatOpen(true)} />}
+
+          {/* CampusAI Chatbot Modal Drawer */}
+          <CampusAIChatbot isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
 
           {/* Modals & Overlays */}
           <AppointmentPassModal />

@@ -41,6 +41,8 @@ export interface CampusLocation {
   roomNumber?: string;
   x: number; // 0 - 100 percentage coordinates on 3D map
   y: number; // 0 - 100 percentage coordinates on 3D map
+  lat?: number; // Real GPS latitude
+  lng?: number; // Real GPS longitude
   distanceMeters: number;
   walkTimeMin: number;
   description: string;
@@ -260,3 +262,15 @@ export type ServiceType =
   | 'parking'
   | 'support'
   | null;
+
+export type MapMode = 'google-map' | 'campus-3d' | 'indoor-blueprint';
+
+export interface AIChatMessage {
+  id: string;
+  sender: 'user' | 'assistant' | 'system';
+  text: string;
+  timestamp: string;
+  suggestions?: string[];
+  actionType?: 'navigate' | 'openService' | 'viewBus' | 'viewCanteen';
+  actionPayload?: any;
+}

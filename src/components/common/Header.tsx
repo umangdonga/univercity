@@ -103,21 +103,32 @@ export const Header: React.FC<HeaderProps> = ({
 
   // Standard Header for Subpages
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100 px-4 py-3 shadow-[0_2px_12px_rgba(38,61,136,0.04)]">
-      <div className="flex items-center justify-between gap-3">
+    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100 px-4 py-3 shadow-[0_2px_12px_rgba(38,61,136,0.04)] font-['Poppins',sans-serif]">
+      <div className="flex items-center justify-between gap-2.5">
         {showBack ? (
-          <button
-            onClick={onBack}
-            className="flex items-center gap-1.5 text-xs font-semibold text-[#263D88] hover:text-[#53AADF] transition-colors py-1 px-2 rounded-xl hover:bg-slate-50 active:scale-95"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            <span>Back</span>
-          </button>
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <button
+              onClick={onBack}
+              className="flex items-center gap-1 text-xs font-bold text-[#263D88] hover:text-[#53AADF] transition-colors py-1.5 px-2.5 rounded-xl bg-slate-100/90 hover:bg-[#BADDF2]/50 active:scale-95 shrink-0 border border-slate-200/60 cursor-pointer shadow-2xs"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span className="hidden xs:inline">Back</span>
+            </button>
+
+            <div className="min-w-0 flex-1">
+              <h1 className="text-sm font-bold text-[#101214] truncate tracking-tight">
+                {title || 'Campus Connect'}
+              </h1>
+              {subtitle && (
+                <p className="text-[10px] text-slate-500 truncate leading-tight">{subtitle}</p>
+              )}
+            </div>
+          </div>
         ) : (
-          <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
             <button
               onClick={() => setActiveTab('profile')}
-              className="relative shrink-0 rounded-full ring-2 ring-[#53AADF]/30 hover:ring-[#263D88] transition-all p-0.5"
+              className="relative shrink-0 rounded-full ring-2 ring-[#53AADF]/30 hover:ring-[#263D88] transition-all p-0.5 cursor-pointer"
               title="View Profile"
             >
               <div className="w-9 h-9 rounded-full bg-[#53AADF] flex items-center justify-center font-bold text-white text-xs overflow-hidden shadow-xs">
@@ -144,7 +155,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </>
               ) : (
                 <>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider">Campus Connect</p>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Campus Connect</p>
                   <h1 className="text-sm font-bold text-[#101214] truncate">{user.name}</h1>
                 </>
               )}
@@ -153,18 +164,19 @@ export const Header: React.FC<HeaderProps> = ({
         )}
 
         {/* Right Action */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={() => {
               const unread = notifications.find((n) => !n.read) || notifications[0];
               setActiveNotifModal(unread);
             }}
-            className="relative p-2 rounded-xl bg-[#F4F7FB] text-[#263D88] hover:bg-[#BADDF2]/40 transition-colors"
+            className="relative p-2 rounded-xl bg-[#F4F7FB] text-[#263D88] hover:bg-[#BADDF2]/40 transition-colors cursor-pointer border border-slate-200/60"
             aria-label="Notifications"
+            title="Notifications"
           >
             <Bell className="w-4 h-4 text-[#263D88]" />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] flex items-center justify-center bg-[#FF0000] text-white text-[9px] font-bold rounded-full px-1 shadow-xs">
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] flex items-center justify-center bg-[#FF0000] text-white text-[9px] font-bold rounded-full px-1 shadow-xs animate-pulse">
                 {unreadCount}
               </span>
             )}
