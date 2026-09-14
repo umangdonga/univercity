@@ -20,6 +20,12 @@ import {
   LIBRARY_BOOKS_DATA,
 } from '../data/mockCampusData';
 import { openGoogleOAuthPopup, GoogleUserPayload } from '../utils/googleAuth';
+import {
+  signInWithGooglePopup,
+  signOutFromFirebase,
+  subscribeToFirebaseAuthState,
+  isFirebaseConfigured,
+} from '../lib/firebase';
 import confetti from 'canvas-confetti';
 
 interface AppContextType {
@@ -27,6 +33,9 @@ interface AppContextType {
   user: UserProfile;
   isLoggedIn: boolean;
   isLoggingIn: boolean;
+  authError: string | null;
+  clearAuthError: () => void;
+  isFirebaseConfigured: boolean;
   loginWithGoogle: () => Promise<void>;
   loginWithCredentials: (email: string, role: UserRole, name?: string) => void;
   loginAsGuest: () => void;
@@ -112,7 +121,7 @@ interface AppContextType {
 }
 
 const DEFAULT_USER: UserProfile = {
-  id: 'usr-20240582',
+  id: 'usr-student',
   name: 'Rohit Sharma',
   email: 'rohit.sharma@university.edu',
   avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
@@ -123,7 +132,7 @@ const DEFAULT_USER: UserProfile = {
   dob: '12 May 2002',
   occupation: 'Student',
   isAuthenticatedWithGoogle: false,
-  isAuthenticated: true,
+  isAuthenticated: false,
   twoFactorEnabled: true,
   privacyShareAcademic: true,
   notificationsEnabled: true,
@@ -133,21 +142,29 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Authentication State
-  const [user, setUser] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem('campus_connect_user');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      parsed.isAuthenticated = parsed.isAuthenticated ?? true;
-      return parsed;
-    }
-    return DEFAULT_USER;
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    return localStorage.getItem('campus_connect_logged_in') === 'true';
   });
 
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
-    return localStorage.getItem('campus_connect_logged_in') !== 'false';
+  const [user, setUser] = useState<UserProfile>(() => {
+    const saved = localStorage.getItem('campus_connect_user');
+    const loggedIn = localStorage.getItem('campus_connect_logged_in') === 'true';
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        parsed.isAuthenticated = loggedIn;
+        return parsed;
+      } catch (e) {
+        // ignore JSON parse error
+      }
+    }
+    return { ...DEFAULT_USER, isAuthenticated: loggedIn };
   });
 
   const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  const clearAuthError = () => setAuthError(null);
 
   // Tab & Service routing
   const [activeTab, setActiveTab] = useState<MainTab>('home');
@@ -262,32 +279,97 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('campus_connect_issued_books', JSON.stringify(issuedBooks));
   }, [issuedBooks]);
 
+  // Firebase Auth State Listener
+  useEffect(() => {
+    const unsubscribe = subscribeToFirebaseAuthState(async (firebaseUser) => {
+      if (firebaseUser) {
+        setUser((prev) => ({
+          ...prev,
+          id: firebaseUser.uid,
+          name: firebaseUser.displayName || prev.name,
+          email: firebaseUser.email || prev.email,
+          avatar: firebaseUser.photoURL || prev.avatar,
+          isAuthenticatedWithGoogle: true,
+          isAuthenticated: true,
+        }));
+        setIsLoggedIn(true);
+        localStorage.setItem('campus_connect_logged_in', 'true');
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
   // Auth Methods
   const loginWithGoogle = async () => {
     setIsLoggingIn(true);
+    setAuthError(null);
     try {
-      const googleUser = await openGoogleOAuthPopup();
+      let googleUser: { id: string; name: string; email: string; picture: string };
+
+      if (isFirebaseConfigured) {
+        // 1. Live Firebase Authentication with Google Provider
+        const firebaseResult = await signInWithGooglePopup();
+        googleUser = {
+          id: firebaseResult.uid,
+          name: firebaseResult.displayName || 'Google User',
+          email: firebaseResult.email || 'user@gmail.com',
+          picture:
+            firebaseResult.photoURL ||
+            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+        };
+      } else {
+        // 2. Google OAuth flow with popup & backend fallback
+        const oAuthResult = await openGoogleOAuthPopup();
+        googleUser = {
+          id: oAuthResult.id,
+          name: oAuthResult.name,
+          email: oAuthResult.email,
+          picture:
+            oAuthResult.picture ||
+            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+        };
+      }
+
       const updatedUser: UserProfile = {
         ...user,
-        id: `usr-${(googleUser.id || 'google').slice(0, 8)}`,
+        id: `usr-${(googleUser.id || 'google').slice(0, 10)}`,
         name: googleUser.name,
         email: googleUser.email,
         avatar: googleUser.picture,
         isAuthenticatedWithGoogle: true,
         isAuthenticated: true,
-        role: 'student',
+        role: user.role || 'student',
       };
+
       setUser(updatedUser);
       setIsLoggedIn(true);
       localStorage.setItem('campus_connect_logged_in', 'true');
+      localStorage.setItem('campus_connect_user', JSON.stringify(updatedUser));
+
+      // Persist / sync to backend database (Requirement 7)
+      try {
+        await fetch('/api/users/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            uid: updatedUser.id,
+            name: updatedUser.name,
+            email: updatedUser.email,
+            photoURL: updatedUser.avatar,
+            role: updatedUser.role,
+          }),
+        });
+      } catch (syncErr) {
+        console.warn('Backend user sync:', syncErr);
+      }
+
       showToast(`Welcome back, ${googleUser.name}!`);
       confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
     } catch (err: any) {
-      console.warn('Google login popup cancelled or error:', err);
-      // Fallback guest login with toast
-      showToast('Continuing with student profile');
-      setUser({ ...user, isAuthenticated: true });
-      setIsLoggedIn(true);
+      console.warn('Google login error:', err);
+      const msg = err.message || 'Google authentication was cancelled or encountered an issue.';
+      setAuthError(msg);
+      showToast(msg);
     } finally {
       setIsLoggingIn(false);
     }
@@ -300,10 +382,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       role,
       name: name || (email.split('@')[0].replace('.', ' ').toUpperCase()),
       isAuthenticated: true,
+      isAuthenticatedWithGoogle: false,
     };
     setUser(updatedUser);
     setIsLoggedIn(true);
     localStorage.setItem('campus_connect_logged_in', 'true');
+    localStorage.setItem('campus_connect_user', JSON.stringify(updatedUser));
     showToast(`Signed in as ${updatedUser.name} (${role})`);
   };
 
@@ -316,16 +400,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       role: 'guest',
       studentId: 'VISITOR-2026',
       isAuthenticated: true,
+      isAuthenticatedWithGoogle: false,
     };
     setUser(guestUser);
     setIsLoggedIn(true);
     localStorage.setItem('campus_connect_logged_in', 'true');
+    localStorage.setItem('campus_connect_user', JSON.stringify(guestUser));
     showToast('Welcome Visitor! Exploring in Guest Mode');
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await signOutFromFirebase();
+    } catch (e) {
+      console.warn('Firebase signout error:', e);
+    }
     setIsLoggedIn(false);
-    setUser({ ...user, isAuthenticated: false });
+    setUser((prev) => ({
+      ...prev,
+      isAuthenticated: false,
+      isAuthenticatedWithGoogle: false,
+    }));
     localStorage.setItem('campus_connect_logged_in', 'false');
     showToast('Signed out successfully.');
   };
@@ -584,6 +679,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         user,
         isLoggedIn,
         isLoggingIn,
+        authError,
+        clearAuthError,
+        isFirebaseConfigured,
         loginWithGoogle,
         loginWithCredentials,
         loginAsGuest,

@@ -23,8 +23,9 @@ function getGeminiClient(): GoogleGenAI | null {
   return aiClient;
 }
 
-// In-memory store for session / oauth states
+// In-memory store for session / oauth states and user profiles
 const authSessions = new Map<string, any>();
+const userDatabase = new Map<string, any>();
 
 // Helper to determine base URL
 function getBaseUrl(req: express.Request): string {
@@ -44,7 +45,41 @@ app.get('/api/health', (req, res) => {
     googleOAuthConfigured: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
     geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
     googleMapsConfigured: Boolean(process.env.GOOGLE_MAPS_API_KEY),
+    usersCount: userDatabase.size,
   });
+});
+
+// User Sync API Endpoint (saves new user basic info on Google login)
+app.post('/api/users/sync', (req, res) => {
+  const { uid, name, email, photoURL, role } = req.body;
+  if (!uid && !email) {
+    return res.status(400).json({ error: 'User identifier (uid or email) is required' });
+  }
+
+  const userId = uid || `usr-${email}`;
+  const existing = userDatabase.get(userId) || {};
+  const updated = {
+    ...existing,
+    uid: userId,
+    name: name || existing.name || 'Campus Student',
+    email: email || existing.email,
+    photoURL: photoURL || existing.photoURL,
+    role: role || existing.role || 'student',
+    lastLoginAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  userDatabase.set(userId, updated);
+  res.json({ success: true, user: updated });
+});
+
+// User Fetch Profile API Endpoint
+app.get('/api/users/:id', (req, res) => {
+  const user = userDatabase.get(req.params.id);
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  res.json(user);
 });
 
 // Google Maps Config Endpoint
