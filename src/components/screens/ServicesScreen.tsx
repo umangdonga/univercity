@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { ServiceType } from '../../types';
 import { Header } from '../common/Header';
@@ -8,132 +8,145 @@ import {
   Bus,
   BookOpen,
   GraduationCap,
-  Building2,
-  Car,
   Headphones,
-  FlaskConical,
-  ChevronRight,
+  Car,
+  FolderClosed,
+  Search,
+  X,
+  Layers,
 } from 'lucide-react';
 
 export const ServicesScreen: React.FC = () => {
   const { openService } = useApp();
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
+  // The exact 8 primary campus services shown in Figma Page 55
   const servicesList: {
     id: ServiceType;
     title: string;
-    description: string;
+    subtitle: string;
     icon: React.FC<{ className?: string }>;
-    iconBg: string;
   }[] = [
     {
       id: 'bus',
-      title: 'Bus Services & Pass',
-      description: 'Live shuttle routes, departure timings, and multi-step digital pass applications.',
+      title: 'Bus service',
+      subtitle: 'Menu & Specials',
       icon: Bus,
-      iconBg: 'bg-blue-50 text-[#263D88]',
-    },
-    {
-      id: 'canteen',
-      title: 'Canteens & Dining',
-      description: 'S Y Cafe & food court menus, ratings, operating hours, and verified reviews.',
-      icon: Utensils,
-      iconBg: 'bg-amber-50 text-amber-600',
-    },
-    {
-      id: 'library',
-      title: 'Central Library',
-      description: 'Catalog search, book reservations, renewal desk, and overdue penalty clearance.',
-      icon: BookOpen,
-      iconBg: 'bg-emerald-50 text-emerald-600',
-    },
-    {
-      id: 'courses',
-      title: 'Courses & Programs',
-      description: 'Curriculum catalogs, syllabi, fee structures, and department academic guides.',
-      icon: GraduationCap,
-      iconBg: 'bg-indigo-50 text-indigo-600',
-    },
-    {
-      id: 'hostel',
-      title: 'Hostel & Residence',
-      description: 'Campus residence blocks, room sharing plans, warden contacts, and rules.',
-      icon: Home,
-      iconBg: 'bg-purple-50 text-purple-600',
     },
     {
       id: 'admission',
-      title: 'Admissions & Inquiries',
-      description: 'Book verified counseling appointments, schedule campus visits, and visitor slips.',
-      icon: Building2,
-      iconBg: 'bg-rose-50 text-rose-600',
+      title: 'Admission',
+      subtitle: 'Status & Faqs',
+      icon: GraduationCap,
     },
     {
-      id: 'parking',
-      title: 'Campus Parking',
-      description: 'Live sensor vacancy tracking for student, faculty, and visitor parking lots.',
-      icon: Car,
-      iconBg: 'bg-cyan-50 text-cyan-700',
+      id: 'hostel',
+      title: 'Hostel',
+      subtitle: 'Room info',
+      icon: Home,
     },
     {
-      id: 'labs',
-      title: 'Labs & Research Facilities',
-      description: 'Computer systems labs, innovation hubs, physics & chemistry research centers.',
-      icon: FlaskConical,
-      iconBg: 'bg-teal-50 text-teal-700',
+      id: 'library',
+      title: 'Library',
+      subtitle: 'Book Service',
+      icon: BookOpen,
+    },
+    {
+      id: 'canteen',
+      title: 'Canteen Menu',
+      subtitle: 'Room info',
+      icon: Utensils,
     },
     {
       id: 'support',
-      title: 'Support & Emergency SOS',
-      description: '24/7 security control room, grievance ticketing, and student welfare desk.',
+      title: 'Support',
+      subtitle: 'Student,faculty,other',
       icon: Headphones,
-      iconBg: 'bg-red-50 text-red-600',
+    },
+    {
+      id: 'parking',
+      title: 'Parking',
+      subtitle: 'Availability',
+      icon: Car,
+    },
+    {
+      id: 'courses',
+      title: 'Course',
+      subtitle: 'Information',
+      icon: FolderClosed,
     },
   ];
 
+  const filteredServices = servicesList.filter((service) => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return true;
+    return (
+      service.title.toLowerCase().includes(query) ||
+      service.subtitle.toLowerCase().includes(query)
+    );
+  });
+
   return (
     <div id="services-screen-page" className="bg-[#F4F7FB] min-h-screen pb-24 font-['Poppins',sans-serif]">
-      <Header />
+      {/* Standard Header */}
+      <Header title="Campus Services" />
 
-      <main className="px-4 py-4 space-y-3.5 max-w-md mx-auto sm:max-w-xl md:max-w-2xl">
-        <div className="px-1">
-          <h1 className="text-base font-bold text-[#101214] tracking-tight">Campus Services</h1>
-          <p className="text-xs text-slate-500">Tap any service to view full details and apply</p>
+      <main className="px-4 py-4 space-y-4 max-w-md mx-auto sm:max-w-xl md:max-w-2xl">
+        {/* Figma Page 55: Search Input with "Finding building,lab and classroom" placeholder */}
+        <div className="relative">
+          <Search className="w-4 h-4 text-slate-400 absolute left-4 top-3.5" />
+          <input
+            type="text"
+            placeholder="Finding building,lab and classroom"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-11 pr-10 py-3 rounded-2xl bg-white border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-[#0C3558] text-[#101214] placeholder:text-slate-400 shadow-2xs transition-all"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3.5 top-3 p-1 rounded-full text-slate-400 hover:text-slate-600 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
-        {/* Clean & Compact Service Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          {servicesList.map((service) => {
-            const Icon = service.icon;
+        {/* Figma Page 55: 2-Column Grid of 8 Deep Navy Cards */}
+        <div className="grid grid-cols-2 gap-3.5 pt-1">
+          {filteredServices.length === 0 ? (
+            <div className="col-span-2 text-center py-12 bg-white rounded-3xl p-6 border border-slate-100">
+              <Layers className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+              <p className="text-xs font-bold text-slate-700">No matching service found</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">Try searching for Bus, Admission, Hostel, or Library</p>
+            </div>
+          ) : (
+            filteredServices.map((service) => {
+              const Icon = service.icon;
 
-            return (
-              <div
-                key={service.id}
-                id={`service-card-${service.id}`}
-                onClick={() => openService(service.id)}
-                className="bg-white rounded-2xl p-4 border border-slate-200/80 hover:border-[#53AADF] shadow-xs hover:shadow-md transition-all cursor-pointer flex items-start gap-3.5 group active:scale-[0.99]"
-              >
-                {/* 1. Service Logo / Icon */}
+              return (
                 <div
-                  className={`w-11 h-11 rounded-xl shrink-0 ${service.iconBg} flex items-center justify-center transition-transform group-hover:scale-105 shadow-2xs`}
+                  key={service.id}
+                  id={`service-card-${service.id}`}
+                  onClick={() => openService(service.id)}
+                  className="bg-[#0C3558] hover:bg-[#12426c] text-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col items-center justify-center text-center group active:scale-[0.98] min-h-[140px]"
                 >
-                  <Icon className="w-5 h-5" />
-                </div>
-
-                {/* 2. Service Name & 3. Short Description */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-1">
-                    <h2 className="text-xs font-bold text-[#101214] group-hover:text-[#263D88] transition-colors truncate">
-                      {service.title}
-                    </h2>
-                    <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#263D88] group-hover:translate-x-0.5 transition-all shrink-0" />
+                  {/* Icon in top center */}
+                  <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                    <Icon className="w-7 h-7 text-white" />
                   </div>
-                  <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5 leading-snug">
-                    {service.description}
+
+                  {/* Title & Subtitle */}
+                  <h2 className="text-sm font-bold text-white tracking-tight leading-tight">
+                    {service.title}
+                  </h2>
+                  <p className="text-[11px] text-white/70 mt-1 font-medium">
+                    {service.subtitle}
                   </p>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </main>
     </div>

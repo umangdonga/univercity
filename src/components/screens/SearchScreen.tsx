@@ -158,34 +158,70 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onClose }) => {
         </div>
       </div>
 
-      {/* Recent Searches Section (when search query is empty) */}
-      {!searchQuery && recentSearches.length > 0 && (
-        <div className="mb-6 bg-white rounded-3xl p-4 border border-slate-100 shadow-xs">
-          <div className="flex items-center justify-between mb-3 px-1">
-            <h3 className="text-xs font-bold text-[#101214] uppercase tracking-wider flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-slate-400" />
-              <span>Recent Searches</span>
-            </h3>
-            <button
-              onClick={clearRecentSearches}
-              className="text-xs text-[#FF0000] font-semibold hover:underline"
-            >
-              Clear all
-            </button>
+      {/* Recent & Popular Searches Section (when search query is empty) */}
+      {!searchQuery && (
+        <div className="space-y-4 mb-5">
+          {/* Popular Student Spots */}
+          <div className="bg-white rounded-3xl p-4 border border-slate-100 shadow-xs">
+            <div className="flex items-center justify-between mb-2.5 px-1">
+              <h3 className="text-xs font-bold text-[#101214] uppercase tracking-wider flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-[#263D88]" />
+                <span>Popular Campus Destinations</span>
+              </h3>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { name: 'Room B 304', code: 'classroom-b304' },
+                { name: 'S Y Cafe', code: 'sy-cafe' },
+                { name: 'Central Library', code: 'central-library' },
+                { name: 'Innovation Lab', code: 'innovation-lab' },
+                { name: 'Campus Bus Stop', code: 'bus-terminal-south' },
+                { name: 'Parking Lot A', code: 'parking-a' },
+              ].map((item) => (
+                <button
+                  key={item.code}
+                  onClick={() => {
+                    const matched = CAMPUS_LOCATIONS.find((l) => l.id === item.code);
+                    if (matched) handleSelectLocation(matched);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F4F7FB] hover:bg-[#263D88] hover:text-white border border-slate-200/80 text-xs text-slate-700 font-semibold transition-all cursor-pointer shadow-2xs active:scale-95"
+                >
+                  <span>{item.name}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            {recentSearches.map((term, i) => (
-              <button
-                key={i}
-                onClick={() => handleRecentClick(term)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F4F7FB] border border-slate-200/70 text-xs text-slate-700 hover:bg-[#BADDF2]/40 hover:text-[#263D88] transition-colors"
-              >
-                <MapPin className="w-3 h-3 text-[#53AADF]" />
-                <span>{term}</span>
-              </button>
-            ))}
-          </div>
+          {/* Recent Searches */}
+          {recentSearches.length > 0 && (
+            <div className="bg-white rounded-3xl p-4 border border-slate-100 shadow-xs">
+              <div className="flex items-center justify-between mb-2.5 px-1">
+                <h3 className="text-xs font-bold text-[#101214] uppercase tracking-wider flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Recent Searches</span>
+                </h3>
+                <button
+                  onClick={clearRecentSearches}
+                  className="text-xs text-[#FF0000] font-semibold hover:underline cursor-pointer"
+                >
+                  Clear all
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {recentSearches.map((term, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleRecentClick(term)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F4F7FB] border border-slate-200/70 text-xs text-slate-700 hover:bg-[#BADDF2]/40 hover:text-[#263D88] transition-colors cursor-pointer"
+                  >
+                    <MapPin className="w-3 h-3 text-[#53AADF]" />
+                    <span>{term}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
