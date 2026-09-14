@@ -60,7 +60,7 @@ export const ServicesScreen: React.FC = () => {
     {
       id: 'support',
       title: 'Support',
-      subtitle: 'Student,faculty,other',
+      subtitle: 'Student Helpdesk',
       icon: Headphones,
     },
     {

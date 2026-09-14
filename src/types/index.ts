@@ -1,11 +1,8 @@
-export type UserRole = 'student' | 'faculty' | 'admin' | 'guest';
+export type UserRole = 'student';
 
 export interface UserProfileData {
   studentId?: string;
-  facultyId?: string;
-  adminId?: string;
   department?: string;
-  designation?: string;
   course?: string;
   semester?: string;
   phone?: string;

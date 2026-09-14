@@ -20,7 +20,6 @@ import { BottomNav } from './components/common/BottomNav';
 import { AppointmentPassModal } from './components/common/AppointmentPassModal';
 import { BusPassModal } from './components/common/BusPassModal';
 import { NotificationDetailModal } from './components/common/NotificationDetailModal';
-import { GuestAccessModal } from './components/common/GuestAccessModal';
 import { Toast } from './components/common/Toast';
 import { CampusAIChatbot } from './components/ai/CampusAIChatbot';
 import { ChatFloatingButton } from './components/ai/ChatFloatingButton';
@@ -50,8 +49,8 @@ const MainAppContent: React.FC = () => {
     );
   }
 
-  // Mandatory Profile Completion Screen after login (for Student, Faculty, Admin)
-  if (!user.profileCompleted && user.role !== 'guest') {
+  // Mandatory Profile Completion Screen after login for Student
+  if (!user.profileCompleted) {
     return (
       <div className="min-h-screen bg-[#BADDF2]/70 sm:bg-gradient-to-br sm:from-[#BADDF2] sm:via-[#cbe4f6] sm:to-[#BADDF2] flex items-center justify-center p-0 sm:p-4 font-['Poppins',sans-serif]">
         <div className="w-full max-w-[440px] mx-auto min-h-screen sm:min-h-0 sm:rounded-[36px] overflow-hidden shadow-2xl bg-white sm:border-[6px] sm:border-[#101214]">
@@ -185,16 +184,16 @@ const MainAppContent: React.FC = () => {
 
               <div className="flex flex-wrap gap-2 pt-1">
                 <span className="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-[10px] font-bold border border-[#263D88]/20 shadow-xs text-[#263D88]">
-                  STUDENT MODE
+                  STUDENT PORTAL
                 </span>
                 <span className="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-[10px] font-bold border border-[#263D88]/20 shadow-xs text-[#263D88]">
-                  FACULTY READY
+                  VERIFIED PASSES
                 </span>
                 <span className="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-[10px] font-bold border border-[#263D88]/20 shadow-xs text-[#263D88]">
                   CAMPUS AI CHATBOT
                 </span>
                 <span className="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-[10px] font-bold border border-[#263D88]/20 shadow-xs text-[#263D88]">
-                  GOOGLE MAPS
+                  CAMPUS NAVIGATION
                 </span>
               </div>
             </div>
@@ -227,7 +226,6 @@ const MainAppContent: React.FC = () => {
           <AppointmentPassModal />
           <BusPassModal />
           <NotificationDetailModal />
-          <GuestAccessModal />
           <Toast />
         </div>
       </div>

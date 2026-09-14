@@ -9,7 +9,7 @@ interface LabsScreenProps {
 }
 
 export const LabsScreen: React.FC<LabsScreenProps> = ({ onBack }) => {
-  const { startNavigationTo, showToast, user, triggerGuestRestriction } = useApp();
+  const { startNavigationTo, showToast } = useApp();
 
   const labs = [
     {
@@ -48,10 +48,6 @@ export const LabsScreen: React.FC<LabsScreenProps> = ({ onBack }) => {
   ];
 
   const handleBookLab = (labName: string) => {
-    if (user.role === 'guest') {
-      triggerGuestRestriction('Lab Workstation Reservation');
-      return;
-    }
     showToast(`Workstation reserved at ${labName}! QR pass added to your dashboard.`);
   };
 

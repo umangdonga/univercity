@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { UserRole } from '../../types';
 import {
   User,
-  Shield,
   Bell,
   Volume2,
   LogOut,
@@ -14,17 +12,13 @@ import {
   Bus,
   CheckCircle2,
   GraduationCap,
-  Briefcase,
-  Compass,
   ArrowRight,
-  KeyRound,
 } from 'lucide-react';
 
 export const ProfileScreen: React.FC = () => {
   const {
     user,
     logout,
-    updateUserRole,
     activeBusTicket,
     activeAppointmentPass,
     issuedBooks,
@@ -37,13 +31,6 @@ export const ProfileScreen: React.FC = () => {
   } = useApp();
 
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
-
-  const rolesList: { id: UserRole; title: string; icon: React.FC<{ className?: string }> }[] = [
-    { id: 'student', title: 'Student', icon: GraduationCap },
-    { id: 'faculty', title: 'Faculty', icon: Briefcase },
-    { id: 'admin', title: 'Admin', icon: Shield },
-    { id: 'guest', title: 'Guest', icon: Compass },
-  ];
 
   return (
     <div className="bg-[#F4F7FB] min-h-screen pb-24 font-['Poppins',sans-serif]">
@@ -64,8 +51,8 @@ export const ProfileScreen: React.FC = () => {
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-lg font-bold text-white tracking-tight">{user.name}</h1>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#53AADF] text-white uppercase">
-                  {user.role}
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#53AADF] text-white uppercase tracking-wider">
+                  STUDENT
                 </span>
                 {user.isAuthenticatedWithGoogle && (
                   <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-white text-slate-800 shadow-xs border border-white/40">
@@ -88,7 +75,7 @@ export const ProfileScreen: React.FC = () => {
 
           <button
             onClick={logout}
-            className="p-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+            className="p-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
             title="Sign Out"
           >
             <LogOut className="w-4 h-4" />
@@ -97,37 +84,6 @@ export const ProfileScreen: React.FC = () => {
       </div>
 
       <main className="px-4 -mt-8 space-y-4 max-w-md mx-auto sm:max-w-xl md:max-w-2xl relative z-20">
-        {/* Role Switcher Card */}
-        <section className="bg-white rounded-3xl p-4 border border-slate-100 shadow-sm space-y-2.5">
-          <div className="flex items-center justify-between px-1">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Active Campus Role
-            </span>
-            <span className="text-[11px] text-slate-400">Switch permissions</span>
-          </div>
-
-          <div className="grid grid-cols-4 gap-1.5">
-            {rolesList.map((r) => {
-              const Icon = r.icon;
-              const isCurrent = user.role === r.id;
-
-              return (
-                <button
-                  key={r.id}
-                  onClick={() => updateUserRole(r.id)}
-                  className={`py-2 px-1 rounded-2xl text-[11px] font-bold transition-all flex flex-col items-center gap-1 cursor-pointer ${
-                    isCurrent
-                      ? 'bg-[#263D88] text-white shadow-md'
-                      : 'bg-[#F4F7FB] text-slate-600 hover:bg-[#BADDF2]/30'
-                  }`}
-                >
-                  <Icon className={`w-4 h-4 ${isCurrent ? 'text-[#BADDF2]' : 'text-slate-400'}`} />
-                  <span className="truncate">{r.title}</span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
 
         {/* Profile Details & Academic Verification */}
         <section className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs space-y-3">

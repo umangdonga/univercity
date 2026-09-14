@@ -38,11 +38,9 @@ interface AppContextType {
   authError: string | null;
   clearAuthError: () => void;
   isFirebaseConfigured: boolean;
-  loginWithGoogle: (preferredRole?: UserRole) => Promise<void>;
-  loginWithCredentials: (email: string, role: UserRole, name?: string) => void;
-  loginAsGuest: () => void;
+  loginWithGoogle: () => Promise<void>;
+  loginWithCredentials: (identifier: string, name?: string) => void;
   logout: () => void;
-  updateUserRole: (role: UserRole) => void;
   updateUserProfile: (updates: Partial<UserProfile>) => void;
 
   // Navigation
@@ -120,12 +118,6 @@ interface AppContextType {
   setPreviewMode: (mode: 'mobile-frame' | 'responsive-desktop') => void;
   toastMessage: string | null;
   showToast: (msg: string) => void;
-
-  // Guest restriction modal
-  guestAccessDeniedModalOpen: boolean;
-  setGuestAccessDeniedModalOpen: (open: boolean) => void;
-  guestRestrictedActionName: string;
-  triggerGuestRestriction: (actionName?: string) => void;
 
   // Profile completion & Bus pass submission
   completeUserProfile: (data: UserProfileData, photoUrl?: string) => void;
@@ -266,15 +258,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [previewMode, setPreviewMode] = useState<'mobile-frame' | 'responsive-desktop'>('mobile-frame');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Guest restriction modal state
-  const [guestAccessDeniedModalOpen, setGuestAccessDeniedModalOpen] = useState<boolean>(false);
-  const [guestRestrictedActionName, setGuestRestrictedActionName] = useState<string>('this service');
-
-  const triggerGuestRestriction = (actionName?: string) => {
-    setGuestRestrictedActionName(actionName || 'this service');
-    setGuestAccessDeniedModalOpen(true);
-  };
-
   // Notification Detail View state
   const [activeNotificationDetail, setActiveNotificationDetail] = useState<NotificationItem | null>(null);
 
@@ -383,7 +366,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   // Auth Methods
-  const loginWithGoogle = async (preferredRole?: UserRole) => {
+  const loginWithGoogle = async () => {
     setIsLoggingIn(true);
     setAuthError(null);
     try {
@@ -413,8 +396,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       }
 
-      const activeRole: UserRole = preferredRole || user.role || 'student';
-
       const updatedUser: UserProfile = {
         ...user,
         id: `usr-${(googleUser.id || 'google').slice(0, 10)}`,
@@ -424,8 +405,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         photo: googleUser.picture,
         isAuthenticatedWithGoogle: true,
         isAuthenticated: true,
-        role: activeRole,
-        profileCompleted: activeRole === 'guest' ? true : false,
+        role: 'student',
+        profileCompleted: user.profileCompleted || false,
       };
 
       setUser(updatedUser);
@@ -443,7 +424,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             name: updatedUser.name,
             email: updatedUser.email,
             photoURL: updatedUser.avatar,
-            role: updatedUser.role,
+            role: 'student',
           }),
         });
       } catch (syncErr) {
@@ -462,12 +443,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const loginWithCredentials = (email: string, role: UserRole, name?: string) => {
+  const loginWithCredentials = (identifier: string, name?: string) => {
+    const isEmail = identifier.includes('@');
+    const studentEmail = isEmail ? identifier : `${identifier.toLowerCase()}@university.edu`;
+    const studentId = !isEmail ? identifier : (user.studentId || '20240582');
+
     const updatedUser: UserProfile = {
       ...user,
-      email,
-      role,
-      name: name || (email.split('@')[0].replace('.', ' ').toUpperCase()),
+      email: studentEmail,
+      studentId: studentId,
+      role: 'student',
+      name: name || (isEmail ? identifier.split('@')[0].replace('.', ' ').toUpperCase() : `Student ${identifier}`),
       isAuthenticated: true,
       isAuthenticatedWithGoogle: false,
     };
@@ -475,25 +461,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsLoggedIn(true);
     localStorage.setItem('campus_connect_logged_in', 'true');
     localStorage.setItem('campus_connect_user', JSON.stringify(updatedUser));
-    showToast(`Signed in as ${updatedUser.name} (${role})`);
-  };
-
-  const loginAsGuest = () => {
-    const guestUser: UserProfile = {
-      ...user,
-      id: 'guest-visitor',
-      name: 'Campus Visitor',
-      email: 'visitor@guest.edu',
-      role: 'guest',
-      studentId: 'VISITOR-2026',
-      isAuthenticated: true,
-      isAuthenticatedWithGoogle: false,
-    };
-    setUser(guestUser);
-    setIsLoggedIn(true);
-    localStorage.setItem('campus_connect_logged_in', 'true');
-    localStorage.setItem('campus_connect_user', JSON.stringify(guestUser));
-    showToast('Welcome Visitor! Exploring in Guest Mode');
+    showToast(`Signed in as ${updatedUser.name}`);
   };
 
   const logout = async () => {
@@ -510,11 +478,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
     localStorage.setItem('campus_connect_logged_in', 'false');
     showToast('Signed out successfully.');
-  };
-
-  const updateUserRole = (role: UserRole) => {
-    setUser((prev) => ({ ...prev, role }));
-    showToast(`Switched campus role to ${role.toUpperCase()}`);
   };
 
   const updateUserProfile = (updates: Partial<UserProfile>) => {
@@ -771,9 +734,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isFirebaseConfigured,
         loginWithGoogle,
         loginWithCredentials,
-        loginAsGuest,
         logout,
-        updateUserRole,
         updateUserProfile,
         activeTab,
         setActiveTab,
@@ -833,10 +794,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setPreviewMode,
         toastMessage,
         showToast,
-        guestAccessDeniedModalOpen,
-        setGuestAccessDeniedModalOpen,
-        guestRestrictedActionName,
-        triggerGuestRestriction,
         completeUserProfile,
         submitBusPassApplication,
         activeNotificationDetail,

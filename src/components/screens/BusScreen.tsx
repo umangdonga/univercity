@@ -31,7 +31,6 @@ export const BusScreen: React.FC<BusScreenProps> = ({ onBack }) => {
     submitBusPassApplication,
     activeBusTicket,
     setActiveBusTicket,
-    triggerGuestRestriction,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'schedule' | 'apply' | 'mypass'>(
@@ -108,28 +107,16 @@ export const BusScreen: React.FC<BusScreenProps> = ({ onBack }) => {
     BUS_ROUTES_DATA.find((r) => r.id === selectedRouteId) || BUS_ROUTES_DATA[0];
 
   const handleStartApplication = () => {
-    if (user.role === 'guest') {
-      triggerGuestRestriction('Bus Pass Application');
-      return;
-    }
     setActiveTab('apply');
     setStep(1);
   };
 
   const handleReviewStep = (e: React.FormEvent) => {
     e.preventDefault();
-    if (user.role === 'guest') {
-      triggerGuestRestriction('Bus Pass Application');
-      return;
-    }
     setStep(2);
   };
 
   const handleConfirmAndSubmit = () => {
-    if (user.role === 'guest') {
-      triggerGuestRestriction('Bus Pass Application');
-      return;
-    }
 
     const newPassData: BusPassData = {
       passNumber: `BUS-PASS-${Math.floor(100000 + Math.random() * 900000)}`,
@@ -192,10 +179,6 @@ export const BusScreen: React.FC<BusScreenProps> = ({ onBack }) => {
           <button
             id="tab-bus-mypass-btn"
             onClick={() => {
-              if (user.role === 'guest') {
-                triggerGuestRestriction('Digital Bus Pass');
-                return;
-              }
               setActiveTab('mypass');
             }}
             className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
@@ -610,10 +593,6 @@ export const BusScreen: React.FC<BusScreenProps> = ({ onBack }) => {
                   </button>
                   <button
                     onClick={() => {
-                      if (user.role === 'guest') {
-                        triggerGuestRestriction('Digital Bus Pass download');
-                        return;
-                      }
                       alert(`Pass #${user.busData?.passNumber} downloaded as secure PDF!`);
                     }}
                     className="py-2.5 px-4 rounded-xl bg-[#53AADF] hover:bg-white text-[#263D88] text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"

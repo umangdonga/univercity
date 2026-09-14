@@ -1,11 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
-import { UserRole, UserProfileData } from '../../types';
+import { UserProfileData } from '../../types';
 import {
   Upload,
   User,
   GraduationCap,
-  Briefcase,
   ShieldCheck,
   CheckCircle2,
   AlertCircle,
@@ -28,11 +27,10 @@ export const ProfileCompletionScreen: React.FC = () => {
   // Form fields
   const [name, setName] = useState<string>(user.name || '');
   const [email] = useState<string>(user.email || '');
-  const [idNumber, setIdNumber] = useState<string>(user.studentId || '');
+  const [idNumber, setIdNumber] = useState<string>(user.studentId || '20240582');
   const [department, setDepartment] = useState<string>('Computer Science & Engineering');
   const [course, setCourse] = useState<string>('Bachelor of Computer Applications (BCA)');
   const [semester, setSemester] = useState<string>('Semester 4');
-  const [designation, setDesignation] = useState<string>('Associate Professor');
   const [phone, setPhone] = useState<string>(user.contact || '+91 98765 43210');
   const [address, setAddress] = useState<string>('Campus Residence Block A, Room 204');
   const [emergencyContact, setEmergencyContact] = useState<string>('+91 98220 11223');
@@ -71,7 +69,7 @@ export const ProfileCompletionScreen: React.FC = () => {
     // Mandatory Photo Validation
     if (!photo || photo.trim() === '') {
       setPhotoError('Profile photo is mandatory! Please upload your photo before proceeding.');
-      showToast('Profile photo is mandatory for university enrollment.');
+      showToast('Profile photo is mandatory for student enrollment.');
       return;
     }
 
@@ -81,7 +79,7 @@ export const ProfileCompletionScreen: React.FC = () => {
     }
 
     if (!idNumber.trim()) {
-      setFormError(`${user.role === 'student' ? 'Student' : user.role === 'faculty' ? 'Faculty' : 'Admin'} ID is required.`);
+      setFormError('Student ID is required.');
       return;
     }
 
@@ -93,13 +91,10 @@ export const ProfileCompletionScreen: React.FC = () => {
     setFormError('');
 
     const profileData: UserProfileData = {
-      studentId: user.role === 'student' ? idNumber : undefined,
-      facultyId: user.role === 'faculty' ? idNumber : undefined,
-      adminId: user.role === 'admin' ? idNumber : undefined,
+      studentId: idNumber,
       department,
-      course: user.role === 'student' ? course : undefined,
-      semester: user.role === 'student' ? semester : undefined,
-      designation: user.role === 'faculty' ? designation : user.role === 'admin' ? 'System Administrator' : undefined,
+      course,
+      semester,
       phone,
       address,
       emergencyContact,
@@ -108,15 +103,6 @@ export const ProfileCompletionScreen: React.FC = () => {
 
     completeUserProfile(profileData, photo);
   };
-
-  const roleTitle =
-    user.role === 'student'
-      ? 'Student Profile Setup'
-      : user.role === 'faculty'
-      ? 'Faculty Profile Setup'
-      : user.role === 'admin'
-      ? 'Administrator Profile Setup'
-      : 'Visitor Profile';
 
   return (
     <div
@@ -128,7 +114,7 @@ export const ProfileCompletionScreen: React.FC = () => {
         <div className="bg-[#263D88] text-white p-6 relative">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#53AADF] text-white uppercase tracking-wider">
-              Mandatory Setup Step
+              Student Enrollment Setup
             </span>
             <button
               onClick={logout}
@@ -138,9 +124,9 @@ export const ProfileCompletionScreen: React.FC = () => {
             </button>
           </div>
 
-          <h1 className="text-xl font-bold tracking-tight text-white">{roleTitle}</h1>
+          <h1 className="text-xl font-bold tracking-tight text-white">Student Profile Setup</h1>
           <p className="text-xs text-blue-100 mt-1">
-            Complete your university verification details to unlock your campus services.
+            Complete your verified student identity details to unlock your campus services.
           </p>
         </div>
 
@@ -281,18 +267,13 @@ export const ProfileCompletionScreen: React.FC = () => {
 
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">
-                {user.role === 'student'
-                  ? 'Student ID / Enrollment No.'
-                  : user.role === 'faculty'
-                  ? 'Faculty ID'
-                  : 'Admin ID'}{' '}
-                <span className="text-red-500">*</span>
+                Student ID / Enrollment No. <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={idNumber}
                 onChange={(e) => setIdNumber(e.target.value)}
-                placeholder={user.role === 'student' ? '20240582' : user.role === 'faculty' ? 'FAC-8091' : 'ADM-1001'}
+                placeholder="20240582"
                 required
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-[#F4F7FB] text-xs font-medium text-[#101214] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#263D88]"
               />
@@ -313,138 +294,63 @@ export const ProfileCompletionScreen: React.FC = () => {
             </div>
           </div>
 
-          {/* Role-Specific Fields */}
-          {user.role === 'student' && (
-            <div className="space-y-3 pt-1 border-t border-slate-100">
-              <h3 className="text-xs font-bold text-[#263D88] uppercase tracking-wider">
-                Academic Program Details
-              </h3>
+          {/* Academic Program Details */}
+          <div className="space-y-3 pt-1 border-t border-slate-100">
+            <h3 className="text-xs font-bold text-[#263D88] uppercase tracking-wider">
+              Academic Program Details
+            </h3>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Course / Degree
-                  </label>
-                  <select
-                    value={course}
-                    onChange={(e) => setCourse(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-[#F4F7FB] text-xs font-medium text-[#101214] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#263D88]"
-                  >
-                    <option>Bachelor of Computer Applications (BCA)</option>
-                    <option>B.Tech Computer Science & Engineering</option>
-                    <option>B.Tech Electronics & Communication</option>
-                    <option>Master of Design (M.Des)</option>
-                    <option>Master of Business Administration (MBA)</option>
-                  </select>
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Course / Degree
+                </label>
+                <select
+                  value={course}
+                  onChange={(e) => setCourse(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-[#F4F7FB] text-xs font-medium text-[#101214] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#263D88]"
+                >
+                  <option>Bachelor of Computer Applications (BCA)</option>
+                  <option>B.Tech Computer Science & Engineering</option>
+                  <option>B.Tech Electronics & Communication</option>
+                  <option>Master of Design (M.Des)</option>
+                  <option>Master of Business Administration (MBA)</option>
+                </select>
+              </div>
 
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Current Semester
-                  </label>
-                  <select
-                    value={semester}
-                    onChange={(e) => setSemester(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-[#F4F7FB] text-xs font-medium text-[#101214] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#263D88]"
-                  >
-                    <option>Semester 1</option>
-                    <option>Semester 2</option>
-                    <option>Semester 3</option>
-                    <option>Semester 4</option>
-                    <option>Semester 5</option>
-                    <option>Semester 6</option>
-                    <option>Semester 7</option>
-                    <option>Semester 8</option>
-                  </select>
-                </div>
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Current Semester
+                </label>
+                <select
+                  value={semester}
+                  onChange={(e) => setSemester(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-[#F4F7FB] text-xs font-medium text-[#101214] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#263D88]"
+                >
+                  <option>Semester 1</option>
+                  <option>Semester 2</option>
+                  <option>Semester 3</option>
+                  <option>Semester 4</option>
+                  <option>Semester 5</option>
+                  <option>Semester 6</option>
+                  <option>Semester 7</option>
+                  <option>Semester 8</option>
+                </select>
+              </div>
 
-                <div className="sm:col-span-2">
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Department
-                  </label>
-                  <input
-                    type="text"
-                    value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-[#F4F7FB] text-xs font-medium text-[#101214] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#263D88]"
-                  />
-                </div>
+              <div className="sm:col-span-2">
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Department
+                </label>
+                <input
+                  type="text"
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-[#F4F7FB] text-xs font-medium text-[#101214] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#263D88]"
+                />
               </div>
             </div>
-          )}
-
-          {user.role === 'faculty' && (
-            <div className="space-y-3 pt-1 border-t border-slate-100">
-              <h3 className="text-xs font-bold text-[#263D88] uppercase tracking-wider">
-                Faculty Position & Department
-              </h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Designation
-                  </label>
-                  <select
-                    value={designation}
-                    onChange={(e) => setDesignation(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-[#F4F7FB] text-xs font-medium text-[#101214] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#263D88]"
-                  >
-                    <option>Professor & Head of Department</option>
-                    <option>Associate Professor</option>
-                    <option>Assistant Professor</option>
-                    <option>Lecturer & Lab Instructor</option>
-                    <option>Research Scientist</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Department
-                  </label>
-                  <input
-                    type="text"
-                    value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-[#F4F7FB] text-xs font-medium text-[#101214] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#263D88]"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {user.role === 'admin' && (
-            <div className="space-y-3 pt-1 border-t border-slate-100">
-              <h3 className="text-xs font-bold text-[#263D88] uppercase tracking-wider">
-                Administrative Responsibilities
-              </h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Office / Wing
-                  </label>
-                  <input
-                    type="text"
-                    value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
-                    placeholder="Registrar Office & Campus Services"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-[#F4F7FB] text-xs font-medium text-[#101214] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#263D88]"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Authorization Role
-                  </label>
-                  <input
-                    type="text"
-                    value="Campus Super Administrator"
-                    disabled
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-xs font-medium text-slate-500 cursor-not-allowed"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
+          </div>
 
           {/* Additional details */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-slate-100">

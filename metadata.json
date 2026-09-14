@@ -1,6 +1,6 @@
 {
   "name": "Campus Connect",
-  "description": "Smart campus life, all in one place. Complete campus navigation, 3D directional guidance, classroom & facility finder, canteen menus, bus tracking, hostel details, course catalog, and admission appointments.",
+  "description": "A smart campus companion designed exclusively for students. Interactive 3D campus navigation, classroom & lab locator, digital bus pass & live shuttle schedules, canteen menus, library book borrowing, timetable, events, and student services.",
   "requestFramePermissions": ["geolocation", "microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
