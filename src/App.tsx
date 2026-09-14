@@ -14,10 +14,13 @@ import { CoursesScreen } from './components/screens/CoursesScreen';
 import { AdmissionScreen } from './components/screens/AdmissionScreen';
 import { ParkingScreen } from './components/screens/ParkingScreen';
 import { SupportScreen } from './components/screens/SupportScreen';
+import { LabsScreen } from './components/screens/LabsScreen';
+import { ProfileCompletionScreen } from './components/screens/ProfileCompletionScreen';
 import { BottomNav } from './components/common/BottomNav';
 import { AppointmentPassModal } from './components/common/AppointmentPassModal';
 import { BusPassModal } from './components/common/BusPassModal';
 import { NotificationDetailModal } from './components/common/NotificationDetailModal';
+import { GuestAccessModal } from './components/common/GuestAccessModal';
 import { Toast } from './components/common/Toast';
 import { CampusAIChatbot } from './components/ai/CampusAIChatbot';
 import { ChatFloatingButton } from './components/ai/ChatFloatingButton';
@@ -47,6 +50,18 @@ const MainAppContent: React.FC = () => {
     );
   }
 
+  // Mandatory Profile Completion Screen after login (for Student, Faculty, Admin)
+  if (!user.profileCompleted && user.role !== 'guest') {
+    return (
+      <div className="min-h-screen bg-[#BADDF2]/70 sm:bg-gradient-to-br sm:from-[#BADDF2] sm:via-[#cbe4f6] sm:to-[#BADDF2] flex items-center justify-center p-0 sm:p-4 font-['Poppins',sans-serif]">
+        <div className="w-full max-w-[440px] mx-auto min-h-screen sm:min-h-0 sm:rounded-[36px] overflow-hidden shadow-2xl bg-white sm:border-[6px] sm:border-[#101214]">
+          <ProfileCompletionScreen />
+        </div>
+        <Toast />
+      </div>
+    );
+  }
+
   // Render Sub-Services when selected
   const renderServiceScreen = () => {
     switch (activeService) {
@@ -64,6 +79,8 @@ const MainAppContent: React.FC = () => {
         return <AdmissionScreen onBack={closeService} />;
       case 'parking':
         return <ParkingScreen onBack={closeService} />;
+      case 'labs':
+        return <LabsScreen onBack={closeService} />;
       case 'support':
         return <SupportScreen onBack={closeService} />;
       default:
@@ -210,6 +227,7 @@ const MainAppContent: React.FC = () => {
           <AppointmentPassModal />
           <BusPassModal />
           <NotificationDetailModal />
+          <GuestAccessModal />
           <Toast />
         </div>
       </div>

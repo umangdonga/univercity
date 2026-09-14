@@ -41,6 +41,7 @@ export const ProfileScreen: React.FC = () => {
   const rolesList: { id: UserRole; title: string; icon: React.FC<{ className?: string }> }[] = [
     { id: 'student', title: 'Student', icon: GraduationCap },
     { id: 'faculty', title: 'Faculty', icon: Briefcase },
+    { id: 'admin', title: 'Admin', icon: Shield },
     { id: 'guest', title: 'Guest', icon: Compass },
   ];
 
@@ -105,7 +106,7 @@ export const ProfileScreen: React.FC = () => {
             <span className="text-[11px] text-slate-400">Switch permissions</span>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-1.5">
             {rolesList.map((r) => {
               const Icon = r.icon;
               const isCurrent = user.role === r.id;
@@ -114,18 +115,103 @@ export const ProfileScreen: React.FC = () => {
                 <button
                   key={r.id}
                   onClick={() => updateUserRole(r.id)}
-                  className={`py-2.5 px-2 rounded-2xl text-xs font-bold transition-all flex flex-col items-center gap-1 ${
+                  className={`py-2 px-1 rounded-2xl text-[11px] font-bold transition-all flex flex-col items-center gap-1 cursor-pointer ${
                     isCurrent
                       ? 'bg-[#263D88] text-white shadow-md'
                       : 'bg-[#F4F7FB] text-slate-600 hover:bg-[#BADDF2]/30'
                   }`}
                 >
                   <Icon className={`w-4 h-4 ${isCurrent ? 'text-[#BADDF2]' : 'text-slate-400'}`} />
-                  <span>{r.title}</span>
+                  <span className="truncate">{r.title}</span>
                 </button>
               );
             })}
           </div>
+        </section>
+
+        {/* Profile Details & Academic Verification */}
+        <section className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <h2 className="text-xs font-bold text-[#101214] uppercase tracking-wider">
+              Profile & Campus Details
+            </h2>
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+              Profile Complete
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            <div>
+              <span className="text-slate-400 text-[10px]">Enrollment / Employee ID</span>
+              <p className="font-semibold text-slate-800">{user.studentId || user.profileData?.studentId || '20240582'}</p>
+            </div>
+            <div>
+              <span className="text-slate-400 text-[10px]">Department</span>
+              <p className="font-semibold text-slate-800">{user.profileData?.department || user.branch || 'Information Technology'}</p>
+            </div>
+            <div>
+              <span className="text-slate-400 text-[10px]">Course / Program</span>
+              <p className="font-semibold text-slate-800 truncate">{user.profileData?.course || 'BCA Specialization'}</p>
+            </div>
+            <div>
+              <span className="text-slate-400 text-[10px]">Contact Phone</span>
+              <p className="font-semibold text-slate-800">{user.profileData?.phone || user.contact || '+91 98765 43210'}</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Bus Information Section - Synchronized with Bus Pass Application */}
+        <section className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <Bus className="w-4 h-4 text-[#263D88]" />
+              <h2 className="text-xs font-bold text-[#101214] uppercase tracking-wider">
+                Bus Information
+              </h2>
+            </div>
+            {user.busData ? (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                Active Pass
+              </span>
+            ) : (
+              <span className="text-[10px] text-slate-400">Not Registered</span>
+            )}
+          </div>
+
+          {user.busData ? (
+            <div className="bg-[#F4F7FB] rounded-2xl p-4 space-y-2 text-xs">
+              <div className="flex justify-between border-b border-slate-200/60 pb-1.5">
+                <span className="text-slate-500">Pickup Stop:</span>
+                <span className="font-bold text-[#263D88]">{user.busData.pickupLocation}</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-200/60 pb-1.5">
+                <span className="text-slate-500">Drop Terminal:</span>
+                <span className="font-medium text-[#101214]">{user.busData.dropLocation}</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-200/60 pb-1.5">
+                <span className="text-slate-500">Assigned Route:</span>
+                <span className="font-bold text-[#263D88]">{user.busData.routeNumber}</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-200/60 pb-1.5">
+                <span className="text-slate-500">Assigned Bus:</span>
+                <span className="font-semibold text-emerald-700">{user.busData.busNumber}</span>
+              </div>
+              <div className="flex justify-between pt-1">
+                <span className="text-slate-500">Pass Number:</span>
+                <span className="font-mono font-bold text-xs text-[#101214]">{user.busData.passNumber}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-[#F4F7FB] p-3.5 rounded-2xl flex items-center justify-between text-xs text-slate-500">
+              <span>No bus route assigned yet</span>
+              <button
+                onClick={() => openService('bus')}
+                className="font-bold text-[#263D88] hover:text-[#53AADF] transition-colors cursor-pointer"
+              >
+                Apply for Bus Pass →
+              </button>
+            </div>
+          )}
         </section>
 
         {/* My Active Passes & Bookings */}

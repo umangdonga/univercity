@@ -52,13 +52,19 @@ export const AuthScreen: React.FC = () => {
     {
       id: 'faculty',
       title: 'Faculty',
-      description: 'Manage academic classes, faculty parking, and student counseling.',
+      description: 'Manage teaching schedule, faculty parking, and classroom navigation.',
       icon: Briefcase,
     },
     {
+      id: 'admin',
+      title: 'Admin',
+      description: 'Review bus pass applications, monitor facilities, and broadcast notices.',
+      icon: Shield,
+    },
+    {
       id: 'guest',
-      title: 'Guest / Visitor',
-      description: 'Explore interactive 3D maps, visitor appointments, and public events.',
+      title: 'Guest',
+      description: 'Explore campus 3D maps, visitor appointments, and university events (view-only).',
       icon: Compass,
     },
   ];
@@ -72,11 +78,28 @@ export const AuthScreen: React.FC = () => {
     );
   };
 
-  const handleDemoSignIn = (role: UserRole) => {
+  const handleDemoSignIn = (role: UserRole, firstTime: boolean = false) => {
     if (role === 'student') {
-      loginWithCredentials('rohit.sharma@university.edu', 'student', 'Rohit Sharma');
+      if (firstTime) {
+        loginWithCredentials('new.student@university.edu', 'student', 'Aarav Patel');
+        // mark profile incomplete
+        setTimeout(() => {
+          const userStr = localStorage.getItem('campus_connect_user');
+          if (userStr) {
+            const u = JSON.parse(userStr);
+            u.profileCompleted = false;
+            u.avatar = '';
+            localStorage.setItem('campus_connect_user', JSON.stringify(u));
+            window.location.reload();
+          }
+        }, 100);
+      } else {
+        loginWithCredentials('rohit.sharma@university.edu', 'student', 'Rohit Sharma');
+      }
     } else if (role === 'faculty') {
       loginWithCredentials('dr.verma@university.edu', 'faculty', 'Dr. Rajesh Verma');
+    } else if (role === 'admin') {
+      loginWithCredentials('admin.menon@university.edu', 'admin', 'Dr. Arvind Menon');
     } else {
       loginAsGuest();
     }
@@ -123,12 +146,12 @@ export const AuthScreen: React.FC = () => {
           </div>
         )}
 
-        {/* Role Selector Tabs (Student, Faculty, Guest) */}
+        {/* Role Selector Tabs (Student, Faculty, Admin, Guest) */}
         <div className="mb-4">
           <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 px-1">
             Select Your Campus Role
           </label>
-          <div className="grid grid-cols-3 gap-2 p-1 bg-[#F4F7FB] rounded-2xl border border-slate-200/80">
+          <div className="grid grid-cols-4 gap-1.5 p-1 bg-[#F4F7FB] rounded-2xl border border-slate-200/80">
             {rolesConfig.map((role) => {
               const Icon = role.icon;
               const isSelected = selectedRole === role.id;
@@ -138,7 +161,7 @@ export const AuthScreen: React.FC = () => {
                   key={role.id}
                   type="button"
                   onClick={() => setSelectedRole(role.id)}
-                  className={`py-2 px-1.5 rounded-xl flex flex-col items-center text-center transition-all ${
+                  className={`py-2 px-1 rounded-xl flex flex-col items-center text-center transition-all cursor-pointer ${
                     isSelected
                       ? 'bg-[#263D88] text-white shadow-md font-bold scale-[1.02]'
                       : 'text-slate-600 hover:text-[#263D88] font-medium'
@@ -149,7 +172,7 @@ export const AuthScreen: React.FC = () => {
                       isSelected ? 'text-[#BADDF2]' : 'text-slate-400'
                     }`}
                   />
-                  <span className="text-xs">{role.title}</span>
+                  <span className="text-[11px]">{role.title}</span>
                 </button>
               );
             })}
@@ -160,10 +183,10 @@ export const AuthScreen: React.FC = () => {
         <div className="space-y-2">
           <button
             type="button"
-            onClick={loginWithGoogle}
+            onClick={() => loginWithGoogle(selectedRole)}
             disabled={isLoggingIn}
-            className="w-full py-3 px-4 rounded-2xl bg-white border border-[#dadce0] hover:bg-[#f8fafd] hover:border-[#53AADF] hover:shadow-sm active:bg-[#f1f3f4] text-[#3c4043] font-semibold text-sm flex items-center justify-center gap-3 transition-all active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed shadow-xs"
-            title="Sign in with your Google account"
+            className="w-full py-3 px-4 rounded-2xl bg-white border border-[#dadce0] hover:bg-[#f8fafd] hover:border-[#53AADF] hover:shadow-sm active:bg-[#f1f3f4] text-[#3c4043] font-semibold text-sm flex items-center justify-center gap-3 transition-all active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed shadow-xs cursor-pointer"
+            title={`Sign in with Google as ${selectedRole.toUpperCase()}`}
           >
             {isLoggingIn ? (
               <div className="w-5 h-5 border-2 border-[#4285F4] border-t-transparent rounded-full animate-spin" />
@@ -329,30 +352,49 @@ export const AuthScreen: React.FC = () => {
             </button>
           </div>
 
-          <div className="grid grid-cols-3 gap-1.5">
+          <div className="grid grid-cols-4 gap-1.5">
             <button
               type="button"
               onClick={() => handleDemoSignIn('student')}
-              className="py-1.5 px-2 bg-slate-50 hover:bg-[#BADDF2]/30 border border-slate-200 rounded-lg text-[10.5px] font-medium text-slate-700 hover:text-[#263D88] transition-colors flex items-center justify-center gap-1"
+              className="py-1.5 px-1 bg-slate-50 hover:bg-[#BADDF2]/30 border border-slate-200 rounded-lg text-[10.5px] font-medium text-slate-700 hover:text-[#263D88] transition-colors flex flex-col items-center justify-center gap-0.5 cursor-pointer"
             >
-              <GraduationCap className="w-3 h-3 text-[#53AADF]" />
+              <GraduationCap className="w-3.5 h-3.5 text-[#53AADF]" />
               <span>Student</span>
             </button>
             <button
               type="button"
               onClick={() => handleDemoSignIn('faculty')}
-              className="py-1.5 px-2 bg-slate-50 hover:bg-[#BADDF2]/30 border border-slate-200 rounded-lg text-[10.5px] font-medium text-slate-700 hover:text-[#263D88] transition-colors flex items-center justify-center gap-1"
+              className="py-1.5 px-1 bg-slate-50 hover:bg-[#BADDF2]/30 border border-slate-200 rounded-lg text-[10.5px] font-medium text-slate-700 hover:text-[#263D88] transition-colors flex flex-col items-center justify-center gap-0.5 cursor-pointer"
             >
-              <Briefcase className="w-3 h-3 text-[#263D88]" />
+              <Briefcase className="w-3.5 h-3.5 text-[#263D88]" />
               <span>Faculty</span>
             </button>
             <button
               type="button"
-              onClick={() => handleDemoSignIn('guest')}
-              className="py-1.5 px-2 bg-slate-50 hover:bg-[#BADDF2]/30 border border-slate-200 rounded-lg text-[10.5px] font-medium text-slate-700 hover:text-[#263D88] transition-colors flex items-center justify-center gap-1"
+              onClick={() => handleDemoSignIn('admin')}
+              className="py-1.5 px-1 bg-slate-50 hover:bg-[#BADDF2]/30 border border-slate-200 rounded-lg text-[10.5px] font-medium text-slate-700 hover:text-[#263D88] transition-colors flex flex-col items-center justify-center gap-0.5 cursor-pointer"
             >
-              <Compass className="w-3 h-3 text-emerald-600" />
+              <Shield className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Admin</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDemoSignIn('guest')}
+              className="py-1.5 px-1 bg-slate-50 hover:bg-[#BADDF2]/30 border border-slate-200 rounded-lg text-[10.5px] font-medium text-slate-700 hover:text-[#263D88] transition-colors flex flex-col items-center justify-center gap-0.5 cursor-pointer"
+            >
+              <Compass className="w-3.5 h-3.5 text-emerald-600" />
               <span>Guest</span>
+            </button>
+          </div>
+
+          <div className="mt-2 text-center">
+            <button
+              type="button"
+              onClick={() => handleDemoSignIn('student', true)}
+              className="text-[11px] text-[#263D88] hover:text-[#1E2F6B] font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer"
+            >
+              <Sparkles className="w-3 h-3 text-amber-500" />
+              <span>Test First-Time Login (Mandatory Profile Setup Flow)</span>
             </button>
           </div>
         </div>

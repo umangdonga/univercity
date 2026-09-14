@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
   UserProfile,
+  UserProfileData,
+  BusPassData,
   UserRole,
   MainTab,
   ServiceType,
@@ -36,7 +38,7 @@ interface AppContextType {
   authError: string | null;
   clearAuthError: () => void;
   isFirebaseConfigured: boolean;
-  loginWithGoogle: () => Promise<void>;
+  loginWithGoogle: (preferredRole?: UserRole) => Promise<void>;
   loginWithCredentials: (email: string, role: UserRole, name?: string) => void;
   loginAsGuest: () => void;
   logout: () => void;
@@ -118,6 +120,18 @@ interface AppContextType {
   setPreviewMode: (mode: 'mobile-frame' | 'responsive-desktop') => void;
   toastMessage: string | null;
   showToast: (msg: string) => void;
+
+  // Guest restriction modal
+  guestAccessDeniedModalOpen: boolean;
+  setGuestAccessDeniedModalOpen: (open: boolean) => void;
+  guestRestrictedActionName: string;
+  triggerGuestRestriction: (actionName?: string) => void;
+
+  // Profile completion & Bus pass submission
+  completeUserProfile: (data: UserProfileData, photoUrl?: string) => void;
+  submitBusPassApplication: (busData: BusPassData) => void;
+  activeNotificationDetail: NotificationItem | null;
+  setActiveNotificationDetail: (item: NotificationItem | null) => void;
 }
 
 const DEFAULT_USER: UserProfile = {
@@ -248,8 +262,77 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return initial;
   });
 
+  // UI Presentation Mode
   const [previewMode, setPreviewMode] = useState<'mobile-frame' | 'responsive-desktop'>('mobile-frame');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Guest restriction modal state
+  const [guestAccessDeniedModalOpen, setGuestAccessDeniedModalOpen] = useState<boolean>(false);
+  const [guestRestrictedActionName, setGuestRestrictedActionName] = useState<string>('this service');
+
+  const triggerGuestRestriction = (actionName?: string) => {
+    setGuestRestrictedActionName(actionName || 'this service');
+    setGuestAccessDeniedModalOpen(true);
+  };
+
+  // Notification Detail View state
+  const [activeNotificationDetail, setActiveNotificationDetail] = useState<NotificationItem | null>(null);
+
+  const completeUserProfile = (profileData: UserProfileData, photoUrl?: string) => {
+    setUser((prev) => {
+      const updated: UserProfile = {
+        ...prev,
+        profileCompleted: true,
+        avatar: photoUrl || prev.avatar,
+        photo: photoUrl || prev.photo || prev.avatar,
+        studentId: profileData.studentId || prev.studentId,
+        branch: profileData.department || profileData.course || prev.branch,
+        contact: profileData.phone || prev.contact,
+        profileData: profileData,
+      };
+      localStorage.setItem('campus_connect_user', JSON.stringify(updated));
+      return updated;
+    });
+    showToast('Profile completed successfully! Welcome to Campus Connect.');
+    confetti({ particleCount: 90, spread: 70, origin: { y: 0.6 } });
+  };
+
+  const submitBusPassApplication = (busData: BusPassData) => {
+    setUser((prev) => {
+      const updated: UserProfile = {
+        ...prev,
+        busData: busData,
+      };
+      localStorage.setItem('campus_connect_user', JSON.stringify(updated));
+      return updated;
+    });
+
+    const newTicket = {
+      ticketId: busData.passNumber,
+      studentName: busData.studentName,
+      busNumber: busData.busNumber,
+      routeNumber: busData.routeNumber,
+      pickupPoint: busData.pickupLocation,
+      dropPoint: busData.dropLocation,
+      validity: busData.validity,
+      status: busData.status,
+    };
+
+    setBusPasses((prev) => [
+      {
+        routeNumber: busData.routeNumber,
+        busNumber: busData.busNumber,
+        studentName: busData.studentName,
+        issueDate: 'Fall Term 2026',
+        ticketId: busData.passNumber,
+      },
+      ...prev,
+    ]);
+
+    setActiveBusTicket(newTicket);
+    showToast('Bus pass application submitted & synced with Profile!');
+    confetti({ particleCount: 70, spread: 60 });
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -300,7 +383,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   // Auth Methods
-  const loginWithGoogle = async () => {
+  const loginWithGoogle = async (preferredRole?: UserRole) => {
     setIsLoggingIn(true);
     setAuthError(null);
     try {
@@ -330,15 +413,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       }
 
+      const activeRole: UserRole = preferredRole || user.role || 'student';
+
       const updatedUser: UserProfile = {
         ...user,
         id: `usr-${(googleUser.id || 'google').slice(0, 10)}`,
         name: googleUser.name,
         email: googleUser.email,
         avatar: googleUser.picture,
+        photo: googleUser.picture,
         isAuthenticatedWithGoogle: true,
         isAuthenticated: true,
-        role: user.role || 'student',
+        role: activeRole,
+        profileCompleted: activeRole === 'guest' ? true : false,
       };
 
       setUser(updatedUser);
@@ -746,6 +833,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setPreviewMode,
         toastMessage,
         showToast,
+        guestAccessDeniedModalOpen,
+        setGuestAccessDeniedModalOpen,
+        guestRestrictedActionName,
+        triggerGuestRestriction,
+        completeUserProfile,
+        submitBusPassApplication,
+        activeNotificationDetail,
+        setActiveNotificationDetail,
       }}
     >
       {children}

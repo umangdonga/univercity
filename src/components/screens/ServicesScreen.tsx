@@ -11,9 +11,8 @@ import {
   Building2,
   Car,
   Headphones,
-  ArrowRight,
-  Sparkles,
-  Layers,
+  FlaskConical,
+  ChevronRight,
 } from 'lucide-react';
 
 export const ServicesScreen: React.FC = () => {
@@ -23,128 +22,114 @@ export const ServicesScreen: React.FC = () => {
     id: ServiceType;
     title: string;
     description: string;
-    badge: string;
     icon: React.FC<{ className?: string }>;
-    accentColor: string;
     iconBg: string;
   }[] = [
     {
+      id: 'bus',
+      title: 'Bus Services & Pass',
+      description: 'Live shuttle routes, departure timings, and multi-step digital pass applications.',
+      icon: Bus,
+      iconBg: 'bg-blue-50 text-[#263D88]',
+    },
+    {
       id: 'canteen',
       title: 'Canteens & Dining',
-      description: 'S Y Cafe & UNIQUE Canteen menus, ratings, timings & live reviews.',
-      badge: 'Open Now',
+      description: 'S Y Cafe & food court menus, ratings, operating hours, and verified reviews.',
       icon: Utensils,
-      accentColor: 'text-amber-600',
       iconBg: 'bg-amber-50 text-amber-600',
     },
     {
-      id: 'hostel',
-      title: 'Hostel & Residence',
-      description: 'Block A & B, room sharing plans, fees, rules & warden direct desk.',
-      badge: 'Beds Available',
-      icon: Home,
-      accentColor: 'text-purple-600',
-      iconBg: 'bg-purple-50 text-purple-600',
-    },
-    {
-      id: 'bus',
-      title: 'Bus Schedules & Pass',
-      description: 'Route 1-5, Bus #12, live departure times & digital student pass.',
-      badge: 'Real Timings',
-      icon: Bus,
-      accentColor: 'text-blue-600',
-      iconBg: 'bg-blue-50 text-blue-600',
-    },
-    {
       id: 'library',
-      title: 'Knowledge Tower Library',
-      description: 'Issued books tracking, overdue fine clearance, and catalog reservation.',
-      badge: '1 Book Overdue',
+      title: 'Central Library',
+      description: 'Catalog search, book reservations, renewal desk, and overdue penalty clearance.',
       icon: BookOpen,
-      accentColor: 'text-emerald-600',
       iconBg: 'bg-emerald-50 text-emerald-600',
     },
     {
       id: 'courses',
-      title: 'Courses & Academics',
-      description: 'BCA, B.Tech, M.Des, MBA branch catalog, fees & syllabus.',
-      badge: 'Admissions Open',
+      title: 'Courses & Programs',
+      description: 'Curriculum catalogs, syllabi, fee structures, and department academic guides.',
       icon: GraduationCap,
-      accentColor: 'text-indigo-600',
       iconBg: 'bg-indigo-50 text-indigo-600',
     },
     {
+      id: 'hostel',
+      title: 'Hostel & Residence',
+      description: 'Campus residence blocks, room sharing plans, warden contacts, and rules.',
+      icon: Home,
+      iconBg: 'bg-purple-50 text-purple-600',
+    },
+    {
       id: 'admission',
-      title: 'Admission Inquiry Pass',
-      description: 'Book official counseling appointment & get verified visitor pass.',
-      badge: 'Visitor Slip',
+      title: 'Admissions & Inquiries',
+      description: 'Book verified counseling appointments, schedule campus visits, and visitor slips.',
       icon: Building2,
-      accentColor: 'text-rose-600',
       iconBg: 'bg-rose-50 text-rose-600',
     },
     {
       id: 'parking',
-      title: 'Parking Slot Finder',
-      description: 'Live sensor tracking for North Gate lot with 6 slots available.',
-      badge: '6 Free Slots',
+      title: 'Campus Parking',
+      description: 'Live sensor vacancy tracking for student, faculty, and visitor parking lots.',
       icon: Car,
-      accentColor: 'text-cyan-600',
-      iconBg: 'bg-cyan-50 text-cyan-600',
+      iconBg: 'bg-cyan-50 text-cyan-700',
+    },
+    {
+      id: 'labs',
+      title: 'Labs & Research Facilities',
+      description: 'Computer systems labs, innovation hubs, physics & chemistry research centers.',
+      icon: FlaskConical,
+      iconBg: 'bg-teal-50 text-teal-700',
     },
     {
       id: 'support',
-      title: 'Help & Emergency SOS',
-      description: '24/7 security helpline, grievance ticketing & campus assistance.',
-      badge: '24/7 SOS Active',
+      title: 'Support & Emergency SOS',
+      description: '24/7 security control room, grievance ticketing, and student welfare desk.',
       icon: Headphones,
-      accentColor: 'text-red-600',
       iconBg: 'bg-red-50 text-red-600',
     },
   ];
 
   return (
-    <div className="bg-[#F4F7FB] min-h-screen pb-24 font-['Poppins',sans-serif]">
+    <div id="services-screen-page" className="bg-[#F4F7FB] min-h-screen pb-24 font-['Poppins',sans-serif]">
       <Header />
 
-      <main className="px-4 py-4 space-y-4 max-w-md mx-auto sm:max-w-xl md:max-w-2xl">
-        <div className="flex items-center justify-between px-1">
-          <div>
-            <h1 className="text-base font-bold text-[#101214] tracking-tight">Campus Services Directory</h1>
-            <p className="text-xs text-slate-400">All campus utilities & student facilities in one place</p>
-          </div>
+      <main className="px-4 py-4 space-y-3.5 max-w-md mx-auto sm:max-w-xl md:max-w-2xl">
+        <div className="px-1">
+          <h1 className="text-base font-bold text-[#101214] tracking-tight">Campus Services</h1>
+          <p className="text-xs text-slate-500">Tap any service to view full details and apply</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Clean & Compact Service Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {servicesList.map((service) => {
             const Icon = service.icon;
 
             return (
               <div
                 key={service.id}
+                id={`service-card-${service.id}`}
                 onClick={() => openService(service.id)}
-                className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs hover:border-[#53AADF] hover:shadow-md transition-all cursor-pointer flex flex-col justify-between space-y-4 group active:scale-[0.99]"
+                className="bg-white rounded-2xl p-4 border border-slate-200/80 hover:border-[#53AADF] shadow-xs hover:shadow-md transition-all cursor-pointer flex items-start gap-3.5 group active:scale-[0.99]"
               >
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className={`w-11 h-11 rounded-2xl ${service.iconBg} flex items-center justify-center transition-transform group-hover:scale-105`}>
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#BADDF2]/40 text-[#263D88]">
-                      {service.badge}
-                    </span>
-                  </div>
-
-                  <h3 className="text-sm font-bold text-[#101214] group-hover:text-[#263D88] transition-colors">
-                    {service.title}
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                    {service.description}
-                  </p>
+                {/* 1. Service Logo / Icon */}
+                <div
+                  className={`w-11 h-11 rounded-xl shrink-0 ${service.iconBg} flex items-center justify-center transition-transform group-hover:scale-105 shadow-2xs`}
+                >
+                  <Icon className="w-5 h-5" />
                 </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs font-bold text-[#263D88]">
-                  <span>Explore Service</span>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                {/* 2. Service Name & 3. Short Description */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-1">
+                    <h2 className="text-xs font-bold text-[#101214] group-hover:text-[#263D88] transition-colors truncate">
+                      {service.title}
+                    </h2>
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#263D88] group-hover:translate-x-0.5 transition-all shrink-0" />
+                  </div>
+                  <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5 leading-snug">
+                    {service.description}
+                  </p>
                 </div>
               </div>
             );
@@ -154,3 +139,4 @@ export const ServicesScreen: React.FC = () => {
     </div>
   );
 };
+

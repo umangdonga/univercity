@@ -103,10 +103,7 @@ export const Header: React.FC<HeaderProps> = ({
             <Search className="w-4 h-4" />
           </span>
           <div className="w-full bg-white/20 hover:bg-white/25 border border-white/30 rounded-2xl py-2.5 pl-11 pr-4 text-xs text-white placeholder:text-white/70 outline-none flex items-center justify-between transition-all">
-            <span className="text-white/80 font-normal">Search buildings, labs, canteen...</span>
-            <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-lg text-white">
-              Ctrl+K
-            </span>
+            <span className="text-white/90 font-normal">Search buildings, labs, canteen...</span>
           </div>
         </div>
       </header>

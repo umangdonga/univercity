@@ -1,10 +1,45 @@
-export type UserRole = 'student' | 'faculty' | 'guest';
+export type UserRole = 'student' | 'faculty' | 'admin' | 'guest';
+
+export interface UserProfileData {
+  studentId?: string;
+  facultyId?: string;
+  adminId?: string;
+  department?: string;
+  designation?: string;
+  course?: string;
+  semester?: string;
+  phone?: string;
+  address?: string;
+  emergencyContact?: string;
+  bloodGroup?: string;
+}
+
+export interface BusPassData {
+  applicationType: 'New Bus Pass' | 'Renewal' | 'Route Change';
+  status: 'Pending' | 'Approved' | 'Rejected';
+  studentName: string;
+  studentId: string;
+  course: string;
+  semester: string;
+  phone: string;
+  address: string;
+  pickupLocation: string;
+  dropLocation: string;
+  routeNumber: string;
+  busNumber: string;
+  emergencyContact: string;
+  passNumber: string;
+  validity: string;
+  photo?: string;
+  appliedDate: string;
+}
 
 export interface UserProfile {
   id: string;
   name: string;
   email: string;
   avatar: string;
+  photo?: string;
   role: UserRole;
   studentId: string;
   branch: string;
@@ -13,6 +48,9 @@ export interface UserProfile {
   occupation: string;
   isAuthenticatedWithGoogle: boolean;
   isAuthenticated?: boolean;
+  profileCompleted?: boolean;
+  profileData?: UserProfileData;
+  busData?: BusPassData;
   googleId?: string;
   twoFactorEnabled?: boolean;
   privacyShareAcademic?: boolean;
@@ -250,7 +288,7 @@ export interface ParkingArea {
   slots: ParkingSlot[];
 }
 
-export type MainTab = 'home' | 'navigation' | 'services' | 'profile';
+export type MainTab = 'home' | 'navigation' | 'services' | 'profile' | 'notifications';
 export type ServiceType =
   | 'all'
   | 'canteen'
@@ -261,6 +299,7 @@ export type ServiceType =
   | 'admission'
   | 'parking'
   | 'support'
+  | 'labs'
   | null;
 
 export type MapMode = 'google-map' | 'campus-3d' | 'indoor-blueprint';
