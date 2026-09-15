@@ -8,11 +8,6 @@ import {
   ArrowRight,
   AlertCircle,
   X,
-  ChevronDown,
-  ChevronUp,
-  Shield,
-  Sparkles,
-  UserCheck,
 } from 'lucide-react';
 
 export const AuthScreen: React.FC = () => {
@@ -22,50 +17,23 @@ export const AuthScreen: React.FC = () => {
     isLoggingIn,
     authError,
     clearAuthError,
-    isFirebaseConfigured,
   } = useApp();
 
-  const [isSignUp, setIsSignUp] = useState<boolean>(false);
   const [identifier, setIdentifier] = useState<string>('');
   const [password, setPassword] = useState<string>('');
-  const [name, setName] = useState<string>('');
-  const [showFirebaseInfo, setShowFirebaseInfo] = useState<boolean>(false);
 
   const handleStudentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     loginWithCredentials(
-      identifier || 'rohit.sharma@university.edu',
-      name || undefined
+      identifier || 'rohit.sharma@university.edu'
     );
-  };
-
-  const handleDemoSignIn = (firstTime: boolean = false) => {
-    if (firstTime) {
-      loginWithCredentials('new.student@university.edu', 'Aarav Patel');
-      setTimeout(() => {
-        const userStr = localStorage.getItem('campus_connect_user');
-        if (userStr) {
-          const u = JSON.parse(userStr);
-          u.profileCompleted = false;
-          u.avatar = '';
-          localStorage.setItem('campus_connect_user', JSON.stringify(u));
-          window.location.reload();
-        }
-      }, 100);
-    } else {
-      loginWithCredentials('rohit.sharma@university.edu', 'Rohit Sharma');
-    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#263D88] via-[#1E2F6B] to-[#101214] text-white flex flex-col justify-between p-4 sm:p-6 select-none font-['Poppins',sans-serif]">
       {/* Top Branding Section */}
-      <div className="pt-4 sm:pt-8 flex flex-col items-center text-center">
-        <CampusLogo size="lg" layout="vertical" showTagline theme="white" />
-        <div className="mt-3 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-xs text-blue-100 font-medium inline-flex items-center gap-2">
-          <GraduationCap className="w-4 h-4 text-[#BADDF2]" />
-          <span>Student Smart Campus Companion</span>
-        </div>
+      <div className="pt-6 sm:pt-10 flex flex-col items-center text-center">
+        <CampusLogo size="lg" layout="vertical" theme="white" />
       </div>
 
       {/* Main Authentication Card */}
@@ -75,7 +43,7 @@ export const AuthScreen: React.FC = () => {
             <GraduationCap className="w-6 h-6 text-[#263D88]" />
           </div>
           <h2 className="text-xl font-bold text-[#263D88] tracking-tight">
-            {isSignUp ? 'Create Student Account' : 'Student Login'}
+            Student Login
           </h2>
           <p className="text-xs text-slate-500 mt-1">
             Access your timetable, navigation, shuttle bus, library & cafeteria
@@ -102,7 +70,7 @@ export const AuthScreen: React.FC = () => {
         )}
 
         {/* Google Student Sign-In */}
-        <div className="space-y-2">
+        <div>
           <button
             type="button"
             onClick={() => loginWithGoogle()}
@@ -136,51 +104,6 @@ export const AuthScreen: React.FC = () => {
               {isLoggingIn ? 'Connecting to Student Account...' : 'Continue with Google'}
             </span>
           </button>
-
-          {/* Firebase Configuration Indicator */}
-          <div className="flex items-center justify-between px-1 text-[11px] text-slate-500">
-            <span className="inline-flex items-center gap-1.5">
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  isFirebaseConfigured ? 'bg-emerald-500' : 'bg-amber-500'
-                }`}
-              />
-              <span className="font-medium text-[10px]">
-                {isFirebaseConfigured ? 'Firebase Auth Connected' : 'Institutional Sign-In Ready'}
-              </span>
-            </span>
-
-            <button
-              type="button"
-              onClick={() => setShowFirebaseInfo(!showFirebaseInfo)}
-              className="text-[#263D88] hover:underline font-medium inline-flex items-center gap-0.5 text-[10px] cursor-pointer"
-            >
-              <span>Setup Info</span>
-              {showFirebaseInfo ? (
-                <ChevronUp className="w-3 h-3" />
-              ) : (
-                <ChevronDown className="w-3 h-3" />
-              )}
-            </button>
-          </div>
-
-          {/* Expandable Firebase & Google Setup Details */}
-          {showFirebaseInfo && (
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-600 space-y-2 animate-in fade-in">
-              <div className="flex items-center justify-between text-[#263D88] font-bold">
-                <span className="inline-flex items-center gap-1">
-                  <Shield className="w-3.5 h-3.5 text-[#53AADF]" />
-                  Student Portal Authentication
-                </span>
-                <span className="text-[10px] px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full border border-blue-200">
-                  Firebase & OAuth
-                </span>
-              </div>
-              <p className="text-[10.5px] leading-relaxed text-slate-600">
-                Sign-in is enabled via standard campus credentials and optional Firebase / Google OAuth integration.
-              </p>
-            </div>
-          )}
         </div>
 
         {/* Divider */}
@@ -194,19 +117,6 @@ export const AuthScreen: React.FC = () => {
 
         {/* Student ID / Email & Password Form */}
         <form onSubmit={handleStudentSubmit} className="space-y-3">
-          {isSignUp && (
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">Full Name</label>
-              <input
-                type="text"
-                placeholder="e.g. Rohit Sharma"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-[#263D88] focus:border-transparent transition-all"
-              />
-            </div>
-          )}
-
           <div>
             <label className="block text-[11px] font-semibold text-slate-600 mb-1">
               Student ID or Campus Email
@@ -239,48 +149,12 @@ export const AuthScreen: React.FC = () => {
 
           <button
             type="submit"
-            className="w-full mt-1 py-3 px-4 rounded-xl bg-[#263D88] text-white font-semibold text-xs hover:bg-[#1E2F6B] shadow-md shadow-[#263D88]/25 transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full mt-2 py-3 px-4 rounded-xl bg-[#263D88] text-white font-semibold text-xs hover:bg-[#1E2F6B] shadow-md shadow-[#263D88]/25 transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
           >
-            <span>{isSignUp ? 'Create Student Account' : 'Student Login'}</span>
+            <span>Student Login</span>
             <ArrowRight className="w-3.5 h-3.5 text-[#53AADF]" />
           </button>
         </form>
-
-        {/* Quick Demo Access Buttons - Student Only */}
-        <div className="mt-4 pt-3 border-t border-slate-100">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-              Quick Student Demo
-            </span>
-            <button
-              type="button"
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="text-[#263D88] font-semibold text-xs hover:underline cursor-pointer"
-            >
-              {isSignUp ? 'Sign In Instead' : 'Register New'}
-            </button>
-          </div>
-
-          <div className="space-y-1.5">
-            <button
-              type="button"
-              onClick={() => handleDemoSignIn(false)}
-              className="w-full py-2 px-3 bg-blue-50/70 hover:bg-blue-100/70 border border-blue-200/80 rounded-xl text-xs font-medium text-[#263D88] transition-colors flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <UserCheck className="w-4 h-4 text-[#263D88]" />
-              <span>Quick Student Login (Rohit Sharma - BCA)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleDemoSignIn(true)}
-              className="w-full py-1.5 px-3 text-[11px] text-slate-600 hover:text-[#263D88] font-medium hover:underline inline-flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span>Test First-Time Login (Profile Setup Flow)</span>
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* Footer copyright */}
