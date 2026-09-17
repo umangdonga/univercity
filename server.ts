@@ -64,6 +64,22 @@ function savePersistedSupabaseConfig(config: { url?: string; anonKey?: string; s
   }
 }
 
+function isCleanKey(val?: string): boolean {
+  if (!val || typeof val !== 'string') return false;
+  const trimmed = val.trim();
+  if (
+    trimmed === 'SUPABASE_ANON_KEY' ||
+    trimmed === 'VITE_SUPABASE_ANON_KEY' ||
+    trimmed === 'your-supabase-anon-key' ||
+    trimmed === 'YOUR_SUPABASE_ANON_KEY' ||
+    trimmed === 'MY_SUPABASE_ANON_KEY' ||
+    trimmed.length < 10
+  ) {
+    return false;
+  }
+  return true;
+}
+
 let supabaseServerClient: SupabaseClient | null = null;
 function getSupabaseServerClient(): SupabaseClient | null {
   const fileConfig = loadPersistedSupabaseConfig();
@@ -72,12 +88,16 @@ function getSupabaseServerClient(): SupabaseClient | null {
     process.env.SUPABASE_URL ||
     fileConfig.url ||
     'https://vldzpmsasqawuzpxptpb.supabase.co';
-  const supabaseKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.VITE_SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    fileConfig.serviceRoleKey ||
-    fileConfig.anonKey;
+  
+  const candidateKeys = [
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    process.env.VITE_SUPABASE_ANON_KEY,
+    process.env.SUPABASE_ANON_KEY,
+    fileConfig.serviceRoleKey,
+    fileConfig.anonKey,
+    'sb_publishable_CHxHFSfISe3pfRWCY8T-5Q_DrAhg6mH',
+  ];
+  const supabaseKey = candidateKeys.find(isCleanKey);
 
   if (!supabaseUrl || !supabaseKey) {
     return null;
@@ -151,11 +171,13 @@ app.get('/api/config', (req, res) => {
     process.env.SUPABASE_URL ||
     fileConfig.url ||
     'https://vldzpmsasqawuzpxptpb.supabase.co';
-  const supabaseAnonKey =
-    process.env.VITE_SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    fileConfig.anonKey ||
-    '';
+  const candidateAnon = [
+    process.env.VITE_SUPABASE_ANON_KEY,
+    process.env.SUPABASE_ANON_KEY,
+    fileConfig.anonKey,
+    'sb_publishable_CHxHFSfISe3pfRWCY8T-5Q_DrAhg6mH',
+  ];
+  const supabaseAnonKey = candidateAnon.find(isCleanKey) || '';
   const googleClientId =
     process.env.VITE_GOOGLE_CLIENT_ID ||
     process.env.GOOGLE_CLIENT_ID ||

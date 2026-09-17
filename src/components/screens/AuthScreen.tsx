@@ -59,9 +59,9 @@ export const AuthScreen: React.FC = () => {
   const [copiedHost, setCopiedHost] = useState<boolean>(false);
 
   // Supabase Anon Key direct connection state for project vldzpmsasqawuzpxptpb
-  const [userAnonKey, setUserAnonKey] = useState<string>('');
+  const [userAnonKey, setUserAnonKey] = useState<string>('sb_publishable_CHxHFSfISe3pfRWCY8T-5Q_DrAhg6mH');
   const [savingKey, setSavingKey] = useState<boolean>(false);
-  const [keyStatusMessage, setKeyStatusMessage] = useState<string | null>(null);
+  const [keyStatusMessage, setKeyStatusMessage] = useState<string | null>('Connected to Supabase project vldzpmsasqawuzpxptpb');
 
   const handleConnectAnonKey = async () => {
     if (!userAnonKey.trim()) return;
@@ -582,9 +582,9 @@ create policy "Allow all operations for students" on public.students
                 </p>
                 <pre className="bg-slate-900 text-emerald-300 p-2.5 rounded-xl font-mono text-[11px] overflow-x-auto select-all">
 {`VITE_SUPABASE_URL=https://vldzpmsasqawuzpxptpb.supabase.co
-VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+VITE_SUPABASE_ANON_KEY=sb_publishable_CHxHFSfISe3pfRWCY8T-5Q_DrAhg6mH
 SUPABASE_URL=https://vldzpmsasqawuzpxptpb.supabase.co
-SUPABASE_ANON_KEY=your-supabase-anon-key`}
+SUPABASE_ANON_KEY=sb_publishable_CHxHFSfISe3pfRWCY8T-5Q_DrAhg6mH`}
                 </pre>
               </div>
 

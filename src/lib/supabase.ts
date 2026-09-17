@@ -1,12 +1,21 @@
 import { createClient, SupabaseClient, User as SupabaseUser, Session } from '@supabase/supabase-js';
 
 // Configuration state
+const rawClientKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const isCleanClientKey =
+  rawClientKey &&
+  rawClientKey !== 'SUPABASE_ANON_KEY' &&
+  rawClientKey !== 'VITE_SUPABASE_ANON_KEY' &&
+  rawClientKey !== 'your-supabase-anon-key' &&
+  rawClientKey.length > 10;
+
 let supabaseClient: SupabaseClient | null = null;
 let supabaseConfig = {
   url: import.meta.env.VITE_SUPABASE_URL || 'https://vldzpmsasqawuzpxptpb.supabase.co',
   anonKey:
-    import.meta.env.VITE_SUPABASE_ANON_KEY ||
-    (typeof window !== 'undefined' ? localStorage.getItem('campus_connect_supabase_key') || '' : ''),
+    (isCleanClientKey ? rawClientKey : '') ||
+    (typeof window !== 'undefined' ? localStorage.getItem('campus_connect_supabase_key') || '' : '') ||
+    'sb_publishable_CHxHFSfISe3pfRWCY8T-5Q_DrAhg6mH',
   googleClientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
 };
 
