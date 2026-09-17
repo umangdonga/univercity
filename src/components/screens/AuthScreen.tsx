@@ -312,23 +312,6 @@ create policy "Allow all operations for students" on public.students
             <span>Open to all users • Any Google or Gmail account</span>
           </div>
 
-          {/* Instant Google Login Bypass (No waiting for Google Cloud propagation) */}
-          <div className="mt-3 p-2.5 rounded-xl bg-blue-50/70 border border-blue-200/80">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 text-xs text-blue-900 font-medium overflow-hidden">
-                <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                <span className="truncate">Instant Access as <strong>umangdonga98@gmail.com</strong></span>
-              </div>
-              <button
-                type="button"
-                onClick={() => loginWithGoogleEmail('umangdonga98@gmail.com', 'Umang Donga')}
-                disabled={isLoggingIn}
-                className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[11px] font-semibold shrink-0 cursor-pointer transition-colors shadow-xs"
-              >
-                1-Click Login
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Divider */}
