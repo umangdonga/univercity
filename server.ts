@@ -3,6 +3,8 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { upsertStudentInPostgres, getStudentFromPostgres } from './src/db/users.ts';
 
 dotenv.config();
 
@@ -23,6 +25,29 @@ function getGeminiClient(): GoogleGenAI | null {
   return aiClient;
 }
 
+// Lazy-initialize Supabase Server Client
+let supabaseServerClient: SupabaseClient | null = null;
+function getSupabaseServerClient(): SupabaseClient | null {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    return null;
+  }
+  if (!supabaseServerClient) {
+    try {
+      supabaseServerClient = createClient(supabaseUrl, supabaseKey);
+    } catch (e) {
+      console.warn('Failed to initialize server Supabase client:', e);
+      return null;
+    }
+  }
+  return supabaseServerClient;
+}
+
 // In-memory store for session / oauth states and user profiles
 const authSessions = new Map<string, any>();
 const userDatabase = new Map<string, any>();
@@ -39,18 +64,169 @@ function getBaseUrl(req: express.Request): string {
 
 // 1. Health check
 app.get('/api/health', (req, res) => {
+  const supabase = getSupabaseServerClient();
+  const cloudSqlConfigured = Boolean(process.env.SQL_HOST && process.env.SQL_DB_NAME);
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    googleOAuthConfigured: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+    cloudSqlConfigured,
+    supabaseConfigured: Boolean(supabase),
+    googleOAuthConfigured: Boolean(process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID),
     geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
     googleMapsConfigured: Boolean(process.env.GOOGLE_MAPS_API_KEY),
     usersCount: userDatabase.size,
   });
 });
 
-// User Sync API Endpoint (saves new user basic info on Google login)
-app.post('/api/users/sync', (req, res) => {
+// Configuration endpoint for client (safe public values)
+app.get('/api/config', (req, res) => {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+  const googleClientId = process.env.VITE_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '';
+  const cloudSqlConfigured = Boolean(process.env.SQL_HOST && process.env.SQL_DB_NAME);
+
+  res.json({
+    supabaseUrl,
+    supabaseAnonKey,
+    googleClientId,
+    cloudSqlConfigured,
+    isSupabaseConfigured: Boolean(supabaseUrl && supabaseAnonKey),
+    isGoogleConfigured: Boolean(googleClientId),
+    appUrl: getBaseUrl(req),
+  });
+});
+
+// Student & User Sync API Endpoint - writes to Cloud SQL (PostgreSQL) and Supabase
+app.post('/api/students/sync', async (req, res) => {
+  const student = req.body;
+  if (!student || (!student.id && !student.email)) {
+    return res.status(400).json({ error: 'Student identifier (id or email) is required' });
+  }
+
+  const userId = student.id || `student-${student.email}`;
+  const existing = userDatabase.get(userId) || {};
+  const updated = {
+    ...existing,
+    ...student,
+    id: userId,
+    updatedAt: new Date().toISOString(),
+  };
+
+  userDatabase.set(userId, updated);
+
+  // 1. Save to Cloud SQL PostgreSQL
+  let postgresSaved = false;
+  let postgresError = null;
+  try {
+    await upsertStudentInPostgres({
+      id: userId,
+      uid: userId,
+      email: updated.email,
+      name: updated.name || 'Campus Student',
+      avatar: updated.avatar || updated.photo || '',
+      studentId: updated.student_id || updated.studentId || '',
+      degree: updated.degree || '',
+      semester: updated.semester || '',
+      department: updated.department || '',
+      emergencyContact: updated.emergency_contact || updated.emergencyContact || '',
+      profileCompleted: Boolean(updated.profile_completed ?? updated.profileCompleted),
+      busData: updated.bus_data || updated.busData || null,
+    });
+    postgresSaved = true;
+  } catch (pgErr: any) {
+    console.warn('PostgreSQL student sync notice:', pgErr.message);
+    postgresError = pgErr.message;
+  }
+
+  // 2. Save to Supabase if configured
+  const supabase = getSupabaseServerClient();
+  let supabaseSaved = false;
+  let supabaseError = null;
+
+  if (supabase) {
+    try {
+      const { error } = await supabase.from('students').upsert(
+        {
+          id: userId,
+          email: updated.email,
+          name: updated.name || 'Campus Student',
+          avatar: updated.avatar || updated.photo || '',
+          student_id: updated.student_id || updated.studentId || '',
+          degree: updated.degree || '',
+          semester: updated.semester || '',
+          department: updated.department || '',
+          emergency_contact: updated.emergency_contact || updated.emergencyContact || '',
+          profile_completed: Boolean(updated.profile_completed ?? updated.profileCompleted),
+          bus_data: updated.bus_data || updated.busData || null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      );
+
+      if (error) {
+        console.warn('Supabase student sync warning:', error.message);
+        supabaseError = error.message;
+      } else {
+        supabaseSaved = true;
+      }
+    } catch (err: any) {
+      console.warn('Supabase sync exception:', err);
+      supabaseError = err.message;
+    }
+  }
+
+  res.json({
+    success: true,
+    postgresSaved,
+    postgresError,
+    supabaseSaved,
+    supabaseConfigured: Boolean(supabase),
+    supabaseError,
+    student: updated,
+  });
+});
+
+// Fetch student profile endpoint (queries Cloud SQL first, then Supabase, then memory)
+app.get('/api/students/:id', async (req, res) => {
+  const { id } = req.params;
+
+  // Try Cloud SQL PostgreSQL
+  try {
+    const pgStudent = await getStudentFromPostgres(id);
+    if (pgStudent) {
+      return res.json(pgStudent);
+    }
+  } catch (pgErr) {
+    console.warn('Error querying Postgres student:', pgErr);
+  }
+
+  // Try Supabase
+  const supabase = getSupabaseServerClient();
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('students')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (!error && data) {
+        return res.json(data);
+      }
+    } catch (e) {
+      console.warn('Error querying Supabase student:', e);
+    }
+  }
+
+  const local = userDatabase.get(id);
+  if (local) {
+    return res.json(local);
+  }
+  res.status(404).json({ error: 'Student not found' });
+});
+
+// Legacy user sync route
+app.post('/api/users/sync', async (req, res) => {
   const { uid, name, email, photoURL, role } = req.body;
   if (!uid && !email) {
     return res.status(400).json({ error: 'User identifier (uid or email) is required' });
@@ -61,15 +237,36 @@ app.post('/api/users/sync', (req, res) => {
   const updated = {
     ...existing,
     uid: userId,
+    id: userId,
     name: name || existing.name || 'Campus Student',
     email: email || existing.email,
     photoURL: photoURL || existing.photoURL,
+    avatar: photoURL || existing.avatar,
     role: role || existing.role || 'student',
     lastLoginAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
 
   userDatabase.set(userId, updated);
+
+  const supabase = getSupabaseServerClient();
+  if (supabase) {
+    try {
+      await supabase.from('students').upsert(
+        {
+          id: userId,
+          email: updated.email,
+          name: updated.name,
+          avatar: updated.photoURL || '',
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      );
+    } catch (e) {
+      console.warn('Supabase sync in legacy endpoint:', e);
+    }
+  }
+
   res.json({ success: true, user: updated });
 });
 
@@ -235,13 +432,6 @@ app.get('/api/auth/google/url', (req, res) => {
       configured: false,
       redirectUri,
       message: 'GOOGLE_CLIENT_ID is not configured in .env / Settings.',
-      fallbackDemoUser: {
-        id: 'google-demo-user',
-        name: 'Rohit Sharma',
-        email: 'rohit.sharma@university.edu',
-        picture: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-        verified_email: true,
-      },
     });
   }
 
@@ -334,13 +524,49 @@ app.get(['/auth/callback', '/auth/callback/'], async (req, res) => {
 
     const userInfo = await userInfoResponse.json();
 
-    const userPayload = JSON.stringify({
-      id: userInfo.id,
+    const studentRecord = {
+      id: `usr-${userInfo.id}`,
       name: userInfo.name || `${userInfo.given_name || ''} ${userInfo.family_name || ''}`.trim(),
       email: userInfo.email,
       picture: userInfo.picture,
       verified_email: userInfo.verified_email,
-    });
+    };
+
+    // Save student profile to Cloud SQL Postgres
+    try {
+      await upsertStudentInPostgres({
+        id: studentRecord.id,
+        uid: studentRecord.id,
+        email: studentRecord.email,
+        name: studentRecord.name,
+        avatar: studentRecord.picture || '',
+        profileCompleted: false,
+      });
+    } catch (pgErr) {
+      console.warn('Cloud SQL Postgres save in oauth callback error:', pgErr);
+    }
+
+    // Save student profile directly to Supabase
+    const supabase = getSupabaseServerClient();
+    if (supabase) {
+      try {
+        await supabase.from('students').upsert(
+          {
+            id: studentRecord.id,
+            email: studentRecord.email,
+            name: studentRecord.name,
+            avatar: studentRecord.picture || '',
+            profile_completed: false,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'id' }
+        );
+      } catch (dbErr) {
+        console.warn('Supabase save in oauth callback error:', dbErr);
+      }
+    }
+
+    const userPayload = JSON.stringify(studentRecord);
 
     res.send(`
       <!DOCTYPE html>

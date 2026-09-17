@@ -21,13 +21,21 @@ import {
   CAMPUS_EVENTS_DATA,
   LIBRARY_BOOKS_DATA,
 } from '../data/mockCampusData';
-import { openGoogleOAuthPopup, GoogleUserPayload } from '../utils/googleAuth';
+import { triggerRealGoogleAuth, GoogleUserPayload } from '../utils/googleAuth';
 import {
   signInWithGooglePopup,
   signOutFromFirebase,
   subscribeToFirebaseAuthState,
   isFirebaseConfigured,
 } from '../lib/firebase';
+import {
+  initSupabaseConfig,
+  getSupabase,
+  isSupabaseConfigured as checkSupabaseConfigured,
+  saveStudentToSupabase,
+  fetchStudentFromSupabase,
+  StudentRecord,
+} from '../lib/supabase';
 import confetti from 'canvas-confetti';
 
 interface AppContextType {
@@ -38,8 +46,14 @@ interface AppContextType {
   authError: string | null;
   clearAuthError: () => void;
   isFirebaseConfigured: boolean;
+  isSupabaseConfigured: boolean;
+  isCloudSqlConfigured: boolean;
   loginWithGoogle: () => Promise<void>;
-  loginWithCredentials: (identifier: string, name?: string) => void;
+  loginWithCredentials: (
+    identifier: string,
+    name?: string,
+    extra?: { studentId?: string; department?: string; degree?: string; isRegister?: boolean }
+  ) => void;
   logout: () => void;
   updateUserProfile: (updates: Partial<UserProfile>) => void;
 
@@ -257,6 +271,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // UI Presentation Mode
   const [previewMode, setPreviewMode] = useState<'mobile-frame' | 'responsive-desktop'>('mobile-frame');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isSupabaseActive, setIsSupabaseActive] = useState<boolean>(false);
+  const [isCloudSqlActive, setIsCloudSqlActive] = useState<boolean>(true);
 
   // Notification Detail View state
   const [activeNotificationDetail, setActiveNotificationDetail] = useState<NotificationItem | null>(null);
@@ -274,6 +290,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         profileData: profileData,
       };
       localStorage.setItem('campus_connect_user', JSON.stringify(updated));
+
+      // Persist to Supabase
+      saveStudentToSupabase({
+        id: updated.id,
+        email: updated.email,
+        name: updated.name,
+        avatar: updated.photo || updated.avatar,
+        student_id: updated.studentId,
+        degree: profileData.course,
+        semester: profileData.semester,
+        department: profileData.department,
+        emergency_contact: profileData.phone,
+        profile_completed: true,
+        bus_data: updated.busData,
+      }).catch((err) => console.warn('Supabase sync on profile complete:', err));
+
       return updated;
     });
     showToast('Profile completed successfully! Welcome to Campus Connect.');
@@ -287,6 +319,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         busData: busData,
       };
       localStorage.setItem('campus_connect_user', JSON.stringify(updated));
+
+      // Persist to Supabase
+      saveStudentToSupabase({
+        id: updated.id,
+        email: updated.email,
+        name: updated.name,
+        avatar: updated.photo || updated.avatar,
+        bus_data: busData,
+      }).catch((err) => console.warn('Supabase sync on bus application:', err));
+
       return updated;
     });
 
@@ -345,7 +387,126 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('campus_connect_issued_books', JSON.stringify(issuedBooks));
   }, [issuedBooks]);
 
-  // Firebase Auth State Listener
+  // Supabase Auth Initialization and Listener
+  useEffect(() => {
+    let unsubscribeSupabase: (() => void) | undefined;
+
+    const initSupabase = async () => {
+      const config = await initSupabaseConfig();
+      setIsSupabaseActive(config.isConfigured);
+
+      const client = getSupabase();
+      if (client) {
+        // 1. Check existing session (e.g. returning from Google OAuth or active refresh)
+        try {
+          const { data: sessionData } = await client.auth.getSession();
+          if (sessionData?.session?.user) {
+            const sbUser = sessionData.session.user;
+            const fullName =
+              sbUser.user_metadata?.full_name ||
+              sbUser.user_metadata?.name ||
+              sbUser.email?.split('@')[0] ||
+              'Campus Student';
+            const avatar =
+              sbUser.user_metadata?.avatar_url ||
+              sbUser.user_metadata?.picture ||
+              '';
+
+            // Check if student profile exists in Supabase
+            const existing = await fetchStudentFromSupabase(sbUser.id);
+
+            setUser((prev) => ({
+              ...prev,
+              id: sbUser.id,
+              name: existing?.name || fullName,
+              email: sbUser.email || prev.email,
+              avatar: existing?.avatar || avatar || prev.avatar,
+              studentId: existing?.student_id || prev.studentId,
+              degree: existing?.degree || prev.degree,
+              semester: existing?.semester || prev.semester,
+              department: existing?.department || prev.department,
+              profileCompleted: existing?.profile_completed ?? prev.profileCompleted,
+              busData: existing?.bus_data || prev.busData,
+              isAuthenticatedWithGoogle: true,
+              isAuthenticated: true,
+            }));
+            setIsLoggedIn(true);
+            localStorage.setItem('campus_connect_logged_in', 'true');
+          }
+        } catch (e) {
+          console.warn('Supabase getSession error:', e);
+        }
+
+        // 2. Subscribe to auth state changes (OAuth redirect handler)
+        const { data: subData } = client.auth.onAuthStateChange(async (event, session) => {
+          if (session?.user && (event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
+            const sbUser = session.user;
+            const fullName =
+              sbUser.user_metadata?.full_name ||
+              sbUser.user_metadata?.name ||
+              sbUser.email?.split('@')[0] ||
+              'Campus Student';
+            const avatar =
+              sbUser.user_metadata?.avatar_url ||
+              sbUser.user_metadata?.picture ||
+              '';
+
+            const existing = await fetchStudentFromSupabase(sbUser.id);
+
+            const studentRecord: StudentRecord = {
+              id: sbUser.id,
+              email: sbUser.email || '',
+              name: existing?.name || fullName,
+              avatar: existing?.avatar || avatar,
+              student_id: existing?.student_id,
+              degree: existing?.degree,
+              semester: existing?.semester,
+              department: existing?.department,
+              profile_completed: existing?.profile_completed,
+              bus_data: existing?.bus_data,
+            };
+
+            // Save student data to Supabase
+            await saveStudentToSupabase(studentRecord);
+
+            setUser((prev) => ({
+              ...prev,
+              id: sbUser.id,
+              name: studentRecord.name,
+              email: sbUser.email || prev.email,
+              avatar: studentRecord.avatar || prev.avatar,
+              studentId: studentRecord.student_id || prev.studentId,
+              degree: studentRecord.degree || prev.degree,
+              semester: studentRecord.semester || prev.semester,
+              department: studentRecord.department || prev.department,
+              profileCompleted: Boolean(studentRecord.profile_completed),
+              busData: studentRecord.bus_data || prev.busData,
+              isAuthenticatedWithGoogle: true,
+              isAuthenticated: true,
+            }));
+            setIsLoggedIn(true);
+            localStorage.setItem('campus_connect_logged_in', 'true');
+            showToast(`Signed in with Google as ${studentRecord.name}`);
+          } else if (event === 'SIGNED_OUT') {
+            setIsLoggedIn(false);
+            localStorage.setItem('campus_connect_logged_in', 'false');
+          }
+        });
+
+        unsubscribeSupabase = () => {
+          subData?.subscription?.unsubscribe();
+        };
+      }
+    };
+
+    initSupabase();
+
+    return () => {
+      if (unsubscribeSupabase) unsubscribeSupabase();
+    };
+  }, []);
+
+  // Firebase Auth State Listener (fallback if firebase is used)
   useEffect(() => {
     const unsubscribe = subscribeToFirebaseAuthState(async (firebaseUser) => {
       if (firebaseUser) {
@@ -370,39 +531,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsLoggingIn(true);
     setAuthError(null);
     try {
-      let googleUser: { id: string; name: string; email: string; picture: string };
+      // 1. Trigger real Google Authentication
+      const googleUser = await triggerRealGoogleAuth();
 
-      if (isFirebaseConfigured) {
-        // 1. Live Firebase Authentication with Google Provider
-        const firebaseResult = await signInWithGooglePopup();
-        googleUser = {
-          id: firebaseResult.uid,
-          name: firebaseResult.displayName || 'Google User',
-          email: firebaseResult.email || 'user@gmail.com',
-          picture:
-            firebaseResult.photoURL ||
-            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-        };
-      } else {
-        // 2. Google OAuth flow with popup & backend fallback
-        const oAuthResult = await openGoogleOAuthPopup();
-        googleUser = {
-          id: oAuthResult.id,
-          name: oAuthResult.name,
-          email: oAuthResult.email,
-          picture:
-            oAuthResult.picture ||
-            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-        };
+      // If Supabase redirected the browser, it returns pending-redirect
+      if (googleUser.id === 'pending-redirect') {
+        return;
       }
 
+      const studentId = `usr-${(googleUser.id || 'google').slice(0, 12)}`;
       const updatedUser: UserProfile = {
         ...user,
-        id: `usr-${(googleUser.id || 'google').slice(0, 10)}`,
-        name: googleUser.name,
+        id: studentId,
+        name: googleUser.name || 'Campus Student',
         email: googleUser.email,
-        avatar: googleUser.picture,
-        photo: googleUser.picture,
+        avatar: googleUser.picture || user.avatar,
+        photo: googleUser.picture || user.photo,
         isAuthenticatedWithGoogle: true,
         isAuthenticated: true,
         role: 'student',
@@ -414,28 +558,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem('campus_connect_logged_in', 'true');
       localStorage.setItem('campus_connect_user', JSON.stringify(updatedUser));
 
-      // Persist / sync to backend database (Requirement 7)
-      try {
-        await fetch('/api/users/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            uid: updatedUser.id,
-            name: updatedUser.name,
-            email: updatedUser.email,
-            photoURL: updatedUser.avatar,
-            role: 'student',
-          }),
-        });
-      } catch (syncErr) {
-        console.warn('Backend user sync:', syncErr);
+      // 2. Persist directly to Supabase
+      const syncResult = await saveStudentToSupabase({
+        id: updatedUser.id,
+        email: updatedUser.email,
+        name: updatedUser.name,
+        avatar: updatedUser.avatar,
+        student_id: updatedUser.studentId,
+        degree: updatedUser.degree,
+        semester: updatedUser.semester,
+        department: updatedUser.department,
+        emergency_contact: updatedUser.emergencyContact,
+        profile_completed: updatedUser.profileCompleted,
+        bus_data: updatedUser.busData,
+      });
+
+      if (syncResult.error) {
+        console.warn('Supabase save notice:', syncResult.error);
       }
 
-      showToast(`Welcome back, ${googleUser.name}!`);
+      showToast(`Welcome, ${googleUser.name}! Successfully signed in with Google.`);
       confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
     } catch (err: any) {
       console.warn('Google login error:', err);
-      const msg = err.message || 'Google authentication was cancelled or encountered an issue.';
+      const msg =
+        err.message ||
+        'Google authentication was cancelled or encountered an issue. Please verify your Supabase/Google configuration.';
       setAuthError(msg);
       showToast(msg);
     } finally {
@@ -443,28 +591,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const loginWithCredentials = (identifier: string, name?: string) => {
+  const loginWithCredentials = async (
+    identifier: string,
+    name?: string,
+    extra?: { studentId?: string; department?: string; degree?: string; isRegister?: boolean }
+  ) => {
     const isEmail = identifier.includes('@');
     const studentEmail = isEmail ? identifier : `${identifier.toLowerCase()}@university.edu`;
-    const studentId = !isEmail ? identifier : (user.studentId || '20240582');
+    const studentId = extra?.studentId || (!isEmail ? identifier : (user.studentId || '20240582'));
+    const studentName =
+      name || (isEmail ? identifier.split('@')[0].replace('.', ' ').toUpperCase() : `Student ${identifier}`);
 
     const updatedUser: UserProfile = {
       ...user,
+      id: `std-${studentId}`,
       email: studentEmail,
       studentId: studentId,
       role: 'student',
-      name: name || (isEmail ? identifier.split('@')[0].replace('.', ' ').toUpperCase() : `Student ${identifier}`),
+      name: studentName,
+      department: extra?.department || user.department,
+      degree: extra?.degree || user.degree,
       isAuthenticated: true,
       isAuthenticatedWithGoogle: false,
     };
+
     setUser(updatedUser);
     setIsLoggedIn(true);
     localStorage.setItem('campus_connect_logged_in', 'true');
     localStorage.setItem('campus_connect_user', JSON.stringify(updatedUser));
-    showToast(`Signed in as ${updatedUser.name}`);
+
+    // Save to Supabase
+    saveStudentToSupabase({
+      id: updatedUser.id,
+      email: updatedUser.email,
+      name: updatedUser.name,
+      student_id: updatedUser.studentId,
+      department: updatedUser.department,
+      degree: updatedUser.degree,
+      profile_completed: updatedUser.profileCompleted,
+      bus_data: updatedUser.busData,
+    }).catch((e) => console.warn('Supabase sync notice on credentials login:', e));
+
+    showToast(extra?.isRegister ? `Account registered! Welcome ${studentName}` : `Signed in as ${studentName}`);
   };
 
   const logout = async () => {
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.auth.signOut();
+      } catch (e) {
+        console.warn('Supabase signout error:', e);
+      }
+    }
     try {
       await signOutFromFirebase();
     } catch (e) {
@@ -481,7 +660,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateUserProfile = (updates: Partial<UserProfile>) => {
-    setUser((prev) => ({ ...prev, ...updates }));
+    setUser((prev) => {
+      const merged = { ...prev, ...updates };
+
+      // Persist to Supabase
+      saveStudentToSupabase({
+        id: merged.id,
+        email: merged.email,
+        name: merged.name,
+        avatar: merged.avatar || merged.photo,
+        student_id: merged.studentId,
+        degree: merged.degree,
+        semester: merged.semester,
+        department: merged.department,
+        emergency_contact: merged.emergencyContact,
+        profile_completed: merged.profileCompleted,
+        bus_data: merged.busData,
+      }).catch((e) => console.warn('Supabase sync error on update:', e));
+
+      return merged;
+    });
     showToast('Profile settings updated');
   };
 
@@ -732,6 +930,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         authError,
         clearAuthError,
         isFirebaseConfigured,
+        isSupabaseConfigured: isSupabaseActive,
+        isCloudSqlConfigured: isCloudSqlActive,
         loginWithGoogle,
         loginWithCredentials,
         logout,

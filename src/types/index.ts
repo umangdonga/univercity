@@ -40,7 +40,11 @@ export interface UserProfile {
   role: UserRole;
   studentId: string;
   branch: string;
+  department?: string;
+  degree?: string;
+  semester?: string;
   contact: string;
+  emergencyContact?: string;
   dob: string;
   occupation: string;
   isAuthenticatedWithGoogle: boolean;
