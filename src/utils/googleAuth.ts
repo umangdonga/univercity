@@ -323,22 +323,14 @@ export async function triggerRealGoogleAuth(
   }
 }
 
-// Default fallback student Google payload for development/preview
-function getDefaultGoogleUser(): GoogleUserPayload {
-  return {
-    id: 'google-usr-' + Date.now(),
-    name: 'Umang Donga',
-    email: 'umangdonga98@gmail.com',
-    picture: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-    verified_email: true,
-  };
+// Throw an error instead of returning a dummy user
+function getDefaultGoogleUser(): never {
+  throw new Error('Google Auth Failed: Either VITE_GOOGLE_CLIENT_ID is missing on Vercel, or the URL is not authorized in Google Cloud Console.');
 }
 
 // Server popup flow with multi-channel communication (postMessage + localStorage)
 export async function openServerGooglePopup(): Promise<GoogleUserPayload> {
-  const fallbackUser = getDefaultGoogleUser();
-
-  return new Promise(async (resolve) => {
+  return new Promise(async (resolve, reject) => {
     try {
       // Clear any prior auth results in localStorage
       try {
@@ -358,7 +350,7 @@ export async function openServerGooglePopup(): Promise<GoogleUserPayload> {
       }
 
       if (!data || !data.configured || !data.url) {
-        return resolve(fallbackUser);
+        return reject(new Error('Backend not available. Make sure VITE_GOOGLE_CLIENT_ID is set in Vercel to use client-side authentication.'));
       }
 
       const width = 520;
@@ -378,11 +370,11 @@ export async function openServerGooglePopup(): Promise<GoogleUserPayload> {
       }
 
       if (!popup) {
-        return resolve(fallbackUser);
+        return reject(new Error('Popup blocked by browser'));
       }
 
       let hasResolved = false;
-      const finish = (user: GoogleUserPayload) => {
+      const finish = (user: GoogleUserPayload | Error) => {
         if (!hasResolved) {
           hasResolved = true;
           window.removeEventListener('message', messageListener);
@@ -391,7 +383,11 @@ export async function openServerGooglePopup(): Promise<GoogleUserPayload> {
           try {
             if (popup && !popup.closed) popup.close();
           } catch (e) {}
-          resolve(user);
+          if (user instanceof Error) {
+            reject(user);
+          } else {
+            resolve(user);
+          }
         }
       };
 
@@ -407,9 +403,9 @@ export async function openServerGooglePopup(): Promise<GoogleUserPayload> {
         }
 
         if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
-          finish(event.data.user || fallbackUser);
+          finish(event.data.user);
         } else if (event.data?.type === 'GOOGLE_AUTH_ERROR') {
-          finish(fallbackUser);
+          finish(new Error(event.data.error || 'Google Auth Error'));
         }
       };
 
@@ -462,11 +458,11 @@ export async function openServerGooglePopup(): Promise<GoogleUserPayload> {
             }
           } catch {}
 
-          finish(fallbackUser);
+          finish(new Error('Google Auth popup was closed.'));
         }
       }, 400);
     } catch {
-      resolve(fallbackUser);
+      reject(new Error('Google Auth Failed'));
     }
   });
 }

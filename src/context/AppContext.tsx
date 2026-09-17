@@ -546,16 +546,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       let googleUser;
       try {
         googleUser = await triggerRealGoogleAuth(targetEmail, targetName);
-      } catch (authErr) {
-        console.warn('Google auth trigger fallback:', authErr);
-        const fallbackEmail = targetEmail || 'umangdonga98@gmail.com';
-        googleUser = {
-          id: 'google-usr-' + Date.now(),
-          name: targetName || 'Umang Donga',
-          email: fallbackEmail,
-          picture: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-          verified_email: true,
-        };
+        if (!googleUser || googleUser.id.startsWith('google-usr-')) {
+          throw new Error('Google Authentication failed. Please check your Client ID and Authorized Origins in Google Cloud Console.');
+        }
+      } catch (authErr: any) {
+        console.error('Google auth trigger failed:', authErr);
+        setAuthError(authErr.message || 'Failed to connect to Google Auth. Ensure VITE_GOOGLE_CLIENT_ID is set in Vercel and origins match.');
+        setIsLoggingIn(false);
+        return;
       }
 
       // If Supabase redirected the browser, it returns pending-redirect
