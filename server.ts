@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
@@ -11,7 +12,21 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
+// Trust reverse proxies (Cloud Run / Nginx) for accurate protocol and host headers
+app.set('trust proxy', true);
+
 app.use(express.json());
+
+// Safely load firebase-applet-config.json for default OAuth client ID if not in env
+let firebaseAppletConfig: any = null;
+try {
+  const cfgPath = path.join(process.cwd(), 'firebase-applet-config.json');
+  if (fs.existsSync(cfgPath)) {
+    firebaseAppletConfig = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
+  }
+} catch {
+  // Ignore
+}
 
 // Lazy-initialize Gemini AI Client
 let aiClient: GoogleGenAI | null = null;
@@ -52,26 +67,46 @@ function getSupabaseServerClient(): SupabaseClient | null {
 const authSessions = new Map<string, any>();
 const userDatabase = new Map<string, any>();
 
-// Helper to determine base URL
+// Helper to determine base URL dynamically with live proxy and client origin support
 function getBaseUrl(req: express.Request): string {
+  // 1. If client provided its browser origin explicitly, prioritize it for matching
+  const queryOrigin = req.query.origin as string;
+  if (queryOrigin && typeof queryOrigin === 'string' && (queryOrigin.includes('localhost') || queryOrigin.includes('.run.app'))) {
+    return queryOrigin.replace(/\/$/, '');
+  }
+  // 2. Check client origin header
+  const headerOrigin = req.get('origin');
+  if (headerOrigin && (headerOrigin.includes('localhost') || headerOrigin.includes('.run.app'))) {
+    return headerOrigin.replace(/\/$/, '');
+  }
+  // 3. Check proxy headers
+  const fHost = (req.headers['x-forwarded-host'] as string) || req.get('host');
+  const fProto = (req.headers['x-forwarded-proto'] as string) || (fHost && fHost.includes('localhost') ? 'http' : 'https');
+  if (fHost) {
+    return `${fProto}://${fHost}`;
+  }
   if (process.env.APP_URL && process.env.APP_URL !== 'MY_APP_URL') {
     return process.env.APP_URL.replace(/\/$/, '');
   }
-  const host = req.get('host') || 'localhost:3000';
-  const protocol = req.protocol || (host.includes('run.app') ? 'https' : 'http');
-  return `${protocol}://${host}`;
+  return 'http://localhost:3000';
 }
 
 // 1. Health check
 app.get('/api/health', (req, res) => {
   const supabase = getSupabaseServerClient();
   const cloudSqlConfigured = Boolean(process.env.SQL_HOST && process.env.SQL_DB_NAME);
+  const googleClientId =
+    process.env.GOOGLE_CLIENT_ID ||
+    process.env.VITE_GOOGLE_CLIENT_ID ||
+    firebaseAppletConfig?.oAuthClientId ||
+    '';
+
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     cloudSqlConfigured,
     supabaseConfigured: Boolean(supabase),
-    googleOAuthConfigured: Boolean(process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID),
+    googleOAuthConfigured: Boolean(googleClientId),
     geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
     googleMapsConfigured: Boolean(process.env.GOOGLE_MAPS_API_KEY),
     usersCount: userDatabase.size,
@@ -82,7 +117,11 @@ app.get('/api/health', (req, res) => {
 app.get('/api/config', (req, res) => {
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
   const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
-  const googleClientId = process.env.VITE_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '';
+  const googleClientId =
+    process.env.VITE_GOOGLE_CLIENT_ID ||
+    process.env.GOOGLE_CLIENT_ID ||
+    firebaseAppletConfig?.oAuthClientId ||
+    '';
   const cloudSqlConfigured = Boolean(process.env.SQL_HOST && process.env.SQL_DB_NAME);
 
   res.json({
@@ -93,6 +132,8 @@ app.get('/api/config', (req, res) => {
     isSupabaseConfigured: Boolean(supabaseUrl && supabaseAnonKey),
     isGoogleConfigured: Boolean(googleClientId),
     appUrl: getBaseUrl(req),
+    liveOrigin: getBaseUrl(req),
+    callbackUrl: `${getBaseUrl(req)}/auth/callback`,
   });
 });
 
@@ -423,9 +464,13 @@ FORMATTING RULES:
 
 // 2. Google OAuth URL generator
 app.get('/api/auth/google/url', (req, res) => {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const baseUrl = getBaseUrl(req);
-  const redirectUri = `${baseUrl}/auth/callback`;
+  const clientId =
+    process.env.GOOGLE_CLIENT_ID ||
+    process.env.VITE_GOOGLE_CLIENT_ID ||
+    firebaseAppletConfig?.oAuthClientId ||
+    '';
+  const origin = ((req.query.origin as string) || getBaseUrl(req)).replace(/\/$/, '');
+  const redirectUri = `${origin}/auth/callback`;
 
   if (!clientId || clientId === '') {
     return res.status(200).json({
@@ -435,7 +480,13 @@ app.get('/api/auth/google/url', (req, res) => {
     });
   }
 
-  const state = Math.random().toString(36).substring(2, 15);
+  // Pack origin & redirectUri into state so callback can reliably decode the exact redirectUri used
+  const stateData = {
+    nonce: Math.random().toString(36).substring(2, 15),
+    redirectUri,
+    origin,
+  };
+  const state = Buffer.from(JSON.stringify(stateData)).toString('base64url');
   const scope = encodeURIComponent('openid profile email');
   const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(
     clientId
@@ -447,6 +498,7 @@ app.get('/api/auth/google/url', (req, res) => {
     configured: true,
     url: googleAuthUrl,
     redirectUri,
+    origin,
     state,
   });
 });
@@ -455,18 +507,36 @@ app.get('/api/auth/google/url', (req, res) => {
 app.get(['/auth/callback', '/auth/callback/'], async (req, res) => {
   const { code, state, error } = req.query;
 
+  let redirectUri = `${getBaseUrl(req)}/auth/callback`;
+  let clientOrigin = getBaseUrl(req);
+
+  if (state && typeof state === 'string') {
+    try {
+      const decoded = JSON.parse(Buffer.from(state, 'base64url').toString('utf8'));
+      if (decoded.redirectUri) redirectUri = decoded.redirectUri;
+      if (decoded.origin) clientOrigin = decoded.origin;
+    } catch {
+      // Ignore
+    }
+  }
+
   if (error) {
     return res.send(`
       <!DOCTYPE html>
       <html>
         <head><title>Authentication Error</title></head>
-        <body style="font-family: system-ui; text-align: center; padding: 40px; background: #F4F7FB;">
-          <h3 style="color: #FF0000;">Authentication Failed</h3>
-          <p>${error}</p>
+        <body style="font-family: system-ui, sans-serif; text-align: center; padding: 40px; background: #F4F7FB;">
+          <h3 style="color: #dc2626; margin-bottom: 8px;">Google Sign-In Cancelled or Denied</h3>
+          <p style="color: #64748b; font-size: 14px;">${error}</p>
           <script>
+            try {
+              localStorage.setItem('campus_connect_google_auth_error', '${error}');
+            } catch (e) {}
             if (window.opener) {
-              window.opener.postMessage({ type: 'GOOGLE_AUTH_ERROR', error: '${error}' }, '*');
-              setTimeout(() => window.close(), 2000);
+              try {
+                window.opener.postMessage({ type: 'GOOGLE_AUTH_ERROR', error: '${error}' }, '*');
+              } catch (e) {}
+              setTimeout(() => window.close(), 1500);
             }
           </script>
         </body>
@@ -479,7 +549,7 @@ app.get(['/auth/callback', '/auth/callback/'], async (req, res) => {
       <!DOCTYPE html>
       <html>
         <head><title>Campus Connect - Auth Callback</title></head>
-        <body style="font-family: system-ui; text-align: center; padding: 40px; background: #F4F7FB;">
+        <body style="font-family: system-ui, sans-serif; text-align: center; padding: 40px; background: #F4F7FB;">
           <h3>No authorization code received</h3>
           <script>
             if (window.opener) {
@@ -493,10 +563,12 @@ app.get(['/auth/callback', '/auth/callback/'], async (req, res) => {
   }
 
   try {
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    const baseUrl = getBaseUrl(req);
-    const redirectUri = `${baseUrl}/auth/callback`;
+    const clientId =
+      process.env.GOOGLE_CLIENT_ID ||
+      process.env.VITE_GOOGLE_CLIENT_ID ||
+      firebaseAppletConfig?.oAuthClientId ||
+      '';
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
 
     // Exchange authorization code for tokens
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
@@ -504,8 +576,8 @@ app.get(['/auth/callback', '/auth/callback/'], async (req, res) => {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         code: code as string,
-        client_id: clientId || '',
-        client_secret: clientSecret || '',
+        client_id: clientId,
+        client_secret: clientSecret,
         redirect_uri: redirectUri,
         grant_type: 'authorization_code',
       }),
@@ -526,7 +598,7 @@ app.get(['/auth/callback', '/auth/callback/'], async (req, res) => {
 
     const studentRecord = {
       id: `usr-${userInfo.id}`,
-      name: userInfo.name || `${userInfo.given_name || ''} ${userInfo.family_name || ''}`.trim(),
+      name: userInfo.name || `${userInfo.given_name || ''} ${userInfo.family_name || ''}`.trim() || 'Google Student',
       email: userInfo.email,
       picture: userInfo.picture,
       verified_email: userInfo.verified_email,
@@ -575,27 +647,37 @@ app.get(['/auth/callback', '/auth/callback/'], async (req, res) => {
           <title>Authenticated - Campus Connect</title>
           <style>
             body { font-family: 'Poppins', system-ui, sans-serif; text-align: center; padding: 48px 20px; background: #F4F7FB; color: #101214; }
-            .card { background: white; border-radius: 16px; padding: 24px; max-width: 360px; margin: 0 auto; box-shadow: 0 4px 20px rgba(38,61,136,0.08); }
-            .spinner { width: 32px; height: 32px; border: 3px solid #BADDF2; border-top-color: #263D88; border-radius: 50%; animation: spin 1s linear infinite; margin: 16px auto; }
+            .card { background: white; border-radius: 20px; padding: 32px 24px; max-width: 380px; margin: 0 auto; box-shadow: 0 10px 30px rgba(38,61,136,0.1); border: 1px solid #e2e8f0; }
+            .spinner { width: 36px; height: 36px; border: 3px solid #BADDF2; border-top-color: #263D88; border-radius: 50%; animation: spin 1s linear infinite; margin: 20px auto; }
+            .btn { display: inline-block; margin-top: 16px; padding: 10px 20px; background: #263D88; color: white; border-radius: 12px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; }
             @keyframes spin { to { transform: rotate(360deg); } }
           </style>
         </head>
         <body>
           <div class="card">
-            <h3 style="color: #263D88; margin: 0 0 8px 0;">Signing in to Campus Connect...</h3>
+            <h3 style="color: #263D88; margin: 0 0 8px 0; font-size: 18px;">Signed In with Google!</h3>
             <p style="color: #64748b; font-size: 14px; margin: 0;">Welcome, <strong>${userInfo.name || userInfo.email}</strong></p>
             <div class="spinner"></div>
-            <p style="font-size: 12px; color: #94a3b8;">This window will close automatically.</p>
+            <p style="font-size: 12px; color: #94a3b8;">Returning to Campus Connect...</p>
+            <button class="btn" onclick="window.close()">Close Window</button>
           </div>
           <script>
             try {
               const userData = ${userPayload};
-              if (window.opener) {
-                window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', user: userData }, '*');
-                setTimeout(() => window.close(), 600);
-              } else {
+              // 1. Broadcast via localStorage for robust same-origin communication
+              try {
+                localStorage.setItem('campus_connect_google_auth_success', JSON.stringify({
+                  user: userData,
+                  timestamp: Date.now()
+                }));
                 localStorage.setItem('campus_connect_google_user', JSON.stringify(userData));
-                window.location.href = '/';
+              } catch (e) {}
+
+              // 2. Broadcast via window.opener postMessage
+              if (window.opener) {
+                try { window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', user: userData }, '*'); } catch (e) {}
+                try { window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', user: userData }, '${clientOrigin}'); } catch (e) {}
+                setTimeout(() => window.close(), 700);
               }
             } catch (e) {
               console.error(e);
@@ -610,12 +692,19 @@ app.get(['/auth/callback', '/auth/callback/'], async (req, res) => {
       <!DOCTYPE html>
       <html>
         <head><title>Authentication Error</title></head>
-        <body style="font-family: system-ui; text-align: center; padding: 40px; background: #F4F7FB;">
-          <h3 style="color: #FF0000;">Authentication Error</h3>
-          <p>${err.message || 'Unknown error occurred'}</p>
+        <body style="font-family: system-ui, sans-serif; text-align: center; padding: 40px; background: #F4F7FB;">
+          <h3 style="color: #dc2626;">Authentication Notice</h3>
+          <p style="color: #475569; font-size: 14px;">${err.message || 'OAuth token exchange was not completed.'}</p>
+          <p style="color: #94a3b8; font-size: 12px; max-width: 360px; margin: 12px auto;">
+            Ensure GOOGLE_CLIENT_SECRET is configured in Settings and that Authorized redirect URIs include:
+            <br/><code>${redirectUri}</code>
+          </p>
           <script>
+            try {
+              localStorage.setItem('campus_connect_google_auth_error', '${(err.message || '').replace(/'/g, "\\'")}');
+            } catch (e) {}
             if (window.opener) {
-              window.opener.postMessage({ type: 'GOOGLE_AUTH_ERROR', error: '${err.message || 'Auth failed'}' }, '*');
+              window.opener.postMessage({ type: 'GOOGLE_AUTH_ERROR', error: '${(err.message || 'Auth failed').replace(/'/g, "\\'")}' }, '*');
               setTimeout(() => window.close(), 3000);
             }
           </script>

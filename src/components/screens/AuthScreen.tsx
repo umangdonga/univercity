@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { CampusLogo } from '../common/CampusLogo';
+import { getLiveAuthDetails } from '../../utils/googleAuth';
 import {
   GraduationCap,
   Mail,
@@ -15,6 +16,8 @@ import {
   Copy,
   ExternalLink,
   Info,
+  Globe,
+  ShieldCheck,
 } from 'lucide-react';
 
 export const AuthScreen: React.FC = () => {
@@ -44,6 +47,17 @@ export const AuthScreen: React.FC = () => {
   // Setup modal for Supabase & Google configuration
   const [showConfigModal, setShowConfigModal] = useState<boolean>(false);
   const [copiedSql, setCopiedSql] = useState<boolean>(false);
+  const [copiedOrigin, setCopiedOrigin] = useState<boolean>(false);
+  const [copiedCallback, setCopiedCallback] = useState<boolean>(false);
+  const [copiedHost, setCopiedHost] = useState<boolean>(false);
+
+  const liveDetails = getLiveAuthDetails();
+
+  const copyToClipboard = (text: string, setCopied: (val: boolean) => void) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -456,8 +470,80 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret`}
                 </pre>
               </div>
 
+              <div className="bg-emerald-50/80 p-3.5 rounded-2xl border border-emerald-200 text-emerald-950">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Globe className="w-4 h-4 text-emerald-700" />
+                  <h4 className="font-bold text-emerald-900 text-xs">Live Environment Google Whitelist URLs</h4>
+                </div>
+                <p className="text-[11px] text-emerald-800 mb-3 leading-relaxed">
+                  Google OAuth security requires adding your live domain to your Google Cloud Console credentials and Firebase Console:
+                </p>
+
+                <div className="space-y-2 font-mono text-[10px]">
+                  {/* Authorized Origin */}
+                  <div className="bg-white p-2 rounded-xl border border-emerald-200 flex items-center justify-between gap-2">
+                    <div className="overflow-hidden">
+                      <span className="font-sans font-semibold text-slate-500 block text-[9px] uppercase tracking-wider">
+                        1. Authorized JavaScript Origin
+                      </span>
+                      <span className="text-slate-800 select-all truncate block">
+                        {liveDetails.currentOrigin}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(liveDetails.currentOrigin, setCopiedOrigin)}
+                      className="px-2 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg text-[10px] font-sans font-semibold cursor-pointer shrink-0 inline-flex items-center gap-1"
+                    >
+                      {copiedOrigin ? <CheckCircle2 className="w-3 h-3 text-emerald-700" /> : <Copy className="w-3 h-3" />}
+                      {copiedOrigin ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
+
+                  {/* Authorized Redirect URI */}
+                  <div className="bg-white p-2 rounded-xl border border-emerald-200 flex items-center justify-between gap-2">
+                    <div className="overflow-hidden">
+                      <span className="font-sans font-semibold text-slate-500 block text-[9px] uppercase tracking-wider">
+                        2. Authorized Redirect URI (Cloud Console)
+                      </span>
+                      <span className="text-slate-800 select-all truncate block">
+                        {liveDetails.callbackUrl}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(liveDetails.callbackUrl, setCopiedCallback)}
+                      className="px-2 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg text-[10px] font-sans font-semibold cursor-pointer shrink-0 inline-flex items-center gap-1"
+                    >
+                      {copiedCallback ? <CheckCircle2 className="w-3 h-3 text-emerald-700" /> : <Copy className="w-3 h-3" />}
+                      {copiedCallback ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
+
+                  {/* Firebase Authorized Domain */}
+                  <div className="bg-white p-2 rounded-xl border border-emerald-200 flex items-center justify-between gap-2">
+                    <div className="overflow-hidden">
+                      <span className="font-sans font-semibold text-slate-500 block text-[9px] uppercase tracking-wider">
+                        3. Firebase Authorized Domain (Auth Settings)
+                      </span>
+                      <span className="text-slate-800 select-all truncate block">
+                        {liveDetails.currentHostname}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(liveDetails.currentHostname, setCopiedHost)}
+                      className="px-2 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg text-[10px] font-sans font-semibold cursor-pointer shrink-0 inline-flex items-center gap-1"
+                    >
+                      {copiedHost ? <CheckCircle2 className="w-3 h-3 text-emerald-700" /> : <Copy className="w-3 h-3" />}
+                      {copiedHost ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div className="bg-blue-50 p-3 rounded-2xl border border-blue-200 text-blue-900">
-                <h4 className="font-bold mb-1">3. Google Provider in Supabase</h4>
+                <h4 className="font-bold mb-1">4. Google Provider in Supabase</h4>
                 <p className="text-[11px] leading-relaxed">
                   In your Supabase Dashboard under <strong>Authentication &gt; Providers &gt; Google</strong>, toggle <strong>Enabled</strong>, paste your Google Client ID & Client Secret, and add your Supabase redirect URI to the authorized redirect URIs in Google Cloud Console.
                 </p>
