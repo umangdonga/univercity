@@ -758,6 +758,10 @@ app.get(['/auth/callback', '/auth/callback/'], async (req, res) => {
                 try { window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', user: userData }, '*'); } catch (e) {}
                 try { window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', user: userData }, '${clientOrigin}'); } catch (e) {}
                 setTimeout(() => window.close(), 700);
+              } else {
+                // Not a popup! We must have done a full page redirect.
+                // Redirect back to the main app!
+                window.location.href = '/';
               }
             } catch (e) {
               console.error(e);

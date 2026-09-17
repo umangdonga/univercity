@@ -318,14 +318,18 @@ export async function triggerRealGoogleAuth(
   // 5. Server-assisted Google OAuth popup with dynamic live origin support
   try {
     return await openServerGooglePopup();
-  } catch {
+  } catch (err: any) {
+    // If we're strictly enforcing real auth, bubble up the actual error!
+    if (err && err.message) {
+      throw err;
+    }
     return getDefaultGoogleUser();
   }
 }
 
-// Throw an error instead of returning a dummy user
+// Throw a fallback error if all else fails
 function getDefaultGoogleUser(): never {
-  throw new Error('Google Auth Failed: Either VITE_GOOGLE_CLIENT_ID is missing on Vercel, or the URL is not authorized in Google Cloud Console.');
+  throw new Error('Google Auth Failed: Ensure VITE_GOOGLE_CLIENT_ID is set and origins are authorized.');
 }
 
 // Server popup flow with multi-channel communication (postMessage + localStorage)
@@ -369,8 +373,13 @@ export async function openServerGooglePopup(): Promise<GoogleUserPayload> {
         // window.open blocked by iframe
       }
 
-      if (!popup) {
-        return reject(new Error('Popup blocked by browser'));
+      if (!popup || window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) {
+        // Fallback: If popup is blocked, do a full page redirect!
+        // We set a flag in localStorage so the app knows it's returning from a redirect
+        try { localStorage.setItem('campus_connect_redirecting', 'true'); } catch(e) {}
+        window.location.href = data.url;
+        // Never resolves because page is unloading
+        return;
       }
 
       let hasResolved = false;

@@ -230,36 +230,7 @@ create policy "Allow all operations for students" on public.students
           </div>
         )}
 
-        {/* Google Authentication Status Banner */}
-        <div className="mb-3.5 p-3 rounded-2xl bg-emerald-50/90 border border-emerald-200 text-emerald-950 text-xs shadow-xs">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-              <div>
-                <p className="font-bold text-[12px] text-emerald-900">
-                  Google Auth Active &amp; Auto-Resolved
-                </p>
-                <p className="text-[11px] text-emerald-700 leading-snug">
-                  Origin mismatch bypassed for live preview • Ready for <strong>umangdonga98@gmail.com</strong>
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                const targetEmail = (mode === 'register' ? regEmail : identifier).includes('@')
-                  ? (mode === 'register' ? regEmail : identifier).trim()
-                  : 'umangdonga98@gmail.com';
-                const targetName = mode === 'register' && regName.trim() ? regName.trim() : 'Umang Donga';
-                loginWithGoogle(targetEmail, targetName);
-              }}
-              disabled={isLoggingIn}
-              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[11px] font-bold shrink-0 transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
-            >
-              Sign In Now
-            </button>
-          </div>
-        </div>
+
 
         {/* Real Google Sign-In & Registration Button */}
         <div>
