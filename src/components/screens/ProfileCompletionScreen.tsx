@@ -154,6 +154,23 @@ export const ProfileCompletionScreen: React.FC = () => {
     completeUserProfile(profileData, photo);
   };
 
+  const handleSkip = () => {
+    const fallbackProfile: UserProfileData = {
+      fullName: fullName.trim() || user.name || 'Campus Student',
+      branchCourse: branchCourse || 'General Campus Services',
+      enrollmentNumber: enrollmentNumber.trim() || user.studentId || `ENR-${Math.floor(100000 + Math.random() * 900000)}`,
+      email,
+      profilePhoto: photo,
+      phone: phone.trim() || '+1 (555) 019-2831',
+      dateOfBirth: dateOfBirth || '2002-01-01',
+      gender: gender || 'Prefer not to say',
+      studentId: enrollmentNumber.trim() || user.studentId || '20240582',
+      course: branchCourse || 'General Campus Services',
+      department: branchCourse || 'General Campus Services',
+    };
+    completeUserProfile(fallbackProfile, photo);
+  };
+
   return (
     <div
       id="create-profile-screen"
@@ -460,15 +477,24 @@ export const ProfileCompletionScreen: React.FC = () => {
             </div>
           </div>
 
-          {/* Primary Action Button: Continue */}
-          <div className="pt-3">
+          {/* Primary Action Buttons: Continue or Skip */}
+          <div className="pt-3 space-y-2">
             <button
               id="create-profile-continue-btn"
               type="submit"
               className="w-full py-3.5 px-4 rounded-xl font-bold text-sm bg-[#263D88] hover:bg-[#1E2F6B] text-white shadow-md shadow-[#263D88]/20 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
             >
-              <span>Continue</span>
+              <span>Save & Continue to Dashboard</span>
               <ArrowRight className="w-4 h-4 text-[#53AADF]" />
+            </button>
+
+            <button
+              id="create-profile-skip-btn"
+              type="button"
+              onClick={handleSkip}
+              className="w-full py-2.5 px-4 rounded-xl font-semibold text-xs text-slate-500 hover:text-[#263D88] hover:bg-slate-50 border border-slate-200 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <span>Skip for Now & Open Campus Dashboard</span>
             </button>
           </div>
         </form>

@@ -355,6 +355,7 @@ export async function openServerGooglePopup(): Promise<GoogleUserPayload> {
       // 1. Listen for postMessage from popup callback
       const messageListener = (event: MessageEvent) => {
         if (
+          event.origin !== window.location.origin &&
           !event.origin.includes('localhost') &&
           !event.origin.includes('.run.app') &&
           !event.origin.includes('google.com')

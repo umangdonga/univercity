@@ -492,7 +492,7 @@ app.get('/api/auth/google/url', (req, res) => {
     clientId
   )}&redirect_uri=${encodeURIComponent(
     redirectUri
-  )}&response_type=code&scope=${scope}&access_type=offline&prompt=consent&state=${state}`;
+  )}&response_type=code&scope=${scope}&access_type=offline&prompt=select_account&state=${state}`;
 
   res.json({
     configured: true,
@@ -612,7 +612,7 @@ app.get(['/auth/callback', '/auth/callback/'], async (req, res) => {
         email: studentRecord.email,
         name: studentRecord.name,
         avatar: studentRecord.picture || '',
-        profileCompleted: false,
+        profileCompleted: true,
       });
     } catch (pgErr) {
       console.warn('Cloud SQL Postgres save in oauth callback error:', pgErr);

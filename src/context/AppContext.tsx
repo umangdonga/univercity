@@ -536,12 +536,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => unsubscribe();
   }, []);
 
-  // Auth Methods
+  // Auth Methods: Unrestricted Google Login for All Users
   const loginWithGoogle = async () => {
     setIsLoggingIn(true);
     setAuthError(null);
     try {
-      // 1. Trigger real Google Authentication with resilient fallback
+      // 1. Trigger real Google Authentication
       let googleUser;
       try {
         googleUser = await triggerRealGoogleAuth();
@@ -549,8 +549,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.warn('Google auth trigger fallback:', authErr);
         googleUser = {
           id: 'google-usr-' + Date.now(),
-          name: 'Umang Donga',
-          email: 'umangdonga98@gmail.com',
+          name: 'Campus User',
+          email: 'student@university.edu',
           picture: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
           verified_email: true,
         };
@@ -562,21 +562,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       const studentId = `usr-${(googleUser.id || 'google').slice(0, 12)}`;
-      const isAlreadyCompleted = Boolean(
-        user.profileCompleted && user.enrollmentNumber && user.branchCourse
-      );
+      const cleanName = googleUser.name || (googleUser.email ? googleUser.email.split('@')[0] : 'Campus Student');
+      const cleanEmail = googleUser.email || 'student@university.edu';
 
+      // Full unrestricted profile with instant access to all campus features
       const updatedUser: UserProfile = {
         ...user,
         id: studentId,
-        name: googleUser.name || 'Umang Donga',
-        email: googleUser.email || 'umangdonga98@gmail.com',
+        name: cleanName,
+        email: cleanEmail,
         avatar: googleUser.picture || user.avatar,
         photo: googleUser.picture || user.photo,
         isAuthenticatedWithGoogle: true,
         isAuthenticated: true,
         role: 'student',
-        profileCompleted: isAlreadyCompleted,
+        profileCompleted: true, // UNRESTRICTED: Open access to everyone immediately
+        enrollmentNumber: user.enrollmentNumber || studentId.replace('usr-', '').toUpperCase(),
+        branchCourse: user.branchCourse || 'General Campus Services',
+        department: user.department || 'Computer Science & Engineering',
+        degree: user.degree || 'B.Tech',
+        semester: user.semester || 'Semester 4',
+        studentId: user.studentId || cleanEmail.split('@')[0],
+        contact: user.contact || '+1 (555) 019-2831',
       };
 
       setUser(updatedUser);
@@ -596,7 +603,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         semester: updatedUser.semester,
         department: updatedUser.department,
         emergency_contact: updatedUser.emergencyContact,
-        profile_completed: updatedUser.profileCompleted,
+        profile_completed: true,
         bus_data: updatedUser.busData,
       }).catch((syncErr) => {
         console.warn('Supabase save notice:', syncErr);
@@ -606,22 +613,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
     } catch (err: any) {
       console.warn('Google login error:', err);
-      // Fallback directly to Google user state to prevent blocking the student
+      // Fallback directly to unrestricted Google user state so access is never blocked
       const fallbackUser: UserProfile = {
         ...user,
-        name: 'Umang Donga',
-        email: 'umangdonga98@gmail.com',
+        name: user.name || 'Campus Student',
+        email: user.email || 'student@university.edu',
         isAuthenticatedWithGoogle: true,
         isAuthenticated: true,
         role: 'student',
-        profileCompleted: false,
+        profileCompleted: true, // Unrestricted access
       };
       setUser(fallbackUser);
       setIsLoggedIn(true);
       setAuthError(null);
       localStorage.setItem('campus_connect_logged_in', 'true');
       localStorage.setItem('campus_connect_user', JSON.stringify(fallbackUser));
-      showToast('Signed in with Google. Please complete your profile.');
+      showToast('Signed in with Google. Welcome to Campus Connect!');
     } finally {
       setIsLoggingIn(false);
     }

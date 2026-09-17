@@ -229,6 +229,10 @@ create policy "Allow all operations for students" on public.students
                 : 'Register with Google'}
             </span>
           </button>
+          <div className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-slate-500 font-medium">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <span>Open to all users • Any Google or Gmail account</span>
+          </div>
         </div>
 
         {/* Divider */}
@@ -546,6 +550,15 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret`}
                 <h4 className="font-bold mb-1">4. Google Provider in Supabase</h4>
                 <p className="text-[11px] leading-relaxed">
                   In your Supabase Dashboard under <strong>Authentication &gt; Providers &gt; Google</strong>, toggle <strong>Enabled</strong>, paste your Google Client ID & Client Secret, and add your Supabase redirect URI to the authorized redirect URIs in Google Cloud Console.
+                </p>
+              </div>
+
+              <div className="bg-amber-50 p-3 rounded-2xl border border-amber-200 text-amber-950">
+                <h4 className="font-bold mb-1">5. Allow All Users (Google Consent Screen)</h4>
+                <p className="text-[11px] leading-relaxed">
+                  In your Google Cloud Console under <strong>APIs &amp; Services &gt; OAuth consent screen</strong>:
+                  <br />• Select <strong>External</strong> user type so anyone with any Google account (@gmail.com, student, or organization) can sign in.
+                  <br />• If in <em>Testing</em> mode, add your email under <strong>Test Users</strong>; or click <strong>Publish App</strong> to allow 100% of Google users without access limitations.
                 </p>
               </div>
             </div>

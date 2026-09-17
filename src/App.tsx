@@ -46,8 +46,8 @@ const MainAppContent: React.FC = () => {
     );
   }
 
-  // Mandatory Profile Completion Screen after login for Student
-  if (!user.profileCompleted) {
+  // Only prompt for profile completion if not authenticated with Google and profile explicitly pending
+  if (!user.profileCompleted && !user.isAuthenticatedWithGoogle) {
     return (
       <div className="min-h-screen bg-[#F4F7FB] flex items-center justify-center p-2 sm:p-4 font-['Poppins',sans-serif]">
         <div className="w-full max-w-lg mx-auto">
