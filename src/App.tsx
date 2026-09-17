@@ -21,9 +21,7 @@ import { AppointmentPassModal } from './components/common/AppointmentPassModal';
 import { BusPassModal } from './components/common/BusPassModal';
 import { NotificationDetailModal } from './components/common/NotificationDetailModal';
 import { Toast } from './components/common/Toast';
-import { CampusAIChatbot } from './components/ai/CampusAIChatbot';
-import { ChatFloatingButton } from './components/ai/ChatFloatingButton';
-import { Smartphone, Monitor, Bot } from 'lucide-react';
+import { Smartphone, Monitor } from 'lucide-react';
 
 const MainAppContent: React.FC = () => {
   const {
@@ -37,7 +35,6 @@ const MainAppContent: React.FC = () => {
   } = useApp();
 
   const [deviceView, setDeviceView] = useState<'mobile' | 'responsive'>('mobile');
-  const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
 
   if (!user.isAuthenticated) {
     return (
@@ -52,8 +49,8 @@ const MainAppContent: React.FC = () => {
   // Mandatory Profile Completion Screen after login for Student
   if (!user.profileCompleted) {
     return (
-      <div className="min-h-screen bg-[#BADDF2]/70 sm:bg-gradient-to-br sm:from-[#BADDF2] sm:via-[#cbe4f6] sm:to-[#BADDF2] flex items-center justify-center p-0 sm:p-4 font-['Poppins',sans-serif]">
-        <div className="w-full max-w-[440px] mx-auto min-h-screen sm:min-h-0 sm:rounded-[36px] overflow-hidden shadow-2xl bg-white sm:border-[6px] sm:border-[#101214]">
+      <div className="min-h-screen bg-[#F4F7FB] flex items-center justify-center p-2 sm:p-4 font-['Poppins',sans-serif]">
+        <div className="w-full max-w-lg mx-auto">
           <ProfileCompletionScreen />
         </div>
         <Toast />
@@ -125,15 +122,6 @@ const MainAppContent: React.FC = () => {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setIsChatOpen(true)}
-            className="px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-[#263D88] text-white hover:bg-[#53AADF] transition-all cursor-pointer shadow-xs"
-            title="Open CampusAI Assistant"
-          >
-            <Bot className="w-3.5 h-3.5" />
-            <span className="hidden xs:inline">CampusAI</span>
-          </button>
-
-          <button
             onClick={() => setDeviceView('mobile')}
             className={`px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
               deviceView === 'mobile'
@@ -161,45 +149,6 @@ const MainAppContent: React.FC = () => {
 
       {/* Main Canvas Area */}
       <div className="w-full flex-1 flex items-center justify-center p-0 sm:p-4 lg:p-6 relative">
-        {/* Left Side Showcase on Desktop when in Mobile View (Matching Design HTML) */}
-        {deviceView === 'mobile' && (
-          <div className="hidden xl:flex absolute top-12 left-10 2xl:left-16 flex-col gap-6 text-[#263D88] max-w-xs z-10 select-none animate-fadeIn">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-[#263D88] rounded-2xl flex items-center justify-center text-white font-bold text-3xl shadow-xl">
-                C
-              </div>
-              <div className="leading-tight">
-                <h1 className="text-2xl font-bold tracking-tight text-[#263D88]">CAMPUS CONNECT</h1>
-                <p className="text-[11px] font-semibold tracking-[0.2em] text-[#263D88]/80">SMART CAMPUS LIFE</p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <h2 className="text-3xl font-bold leading-tight text-[#101214]">
-                High-Fidelity Student Hub
-              </h2>
-              <p className="text-sm text-[#101214]/70 leading-relaxed">
-                All university services integrated into a single touchpoint. Navigate Google Maps & 3D indoor blocks, ask CampusAI, manage bus routes, library, and canteen menus.
-              </p>
-
-              <div className="flex flex-wrap gap-2 pt-1">
-                <span className="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-[10px] font-bold border border-[#263D88]/20 shadow-xs text-[#263D88]">
-                  STUDENT PORTAL
-                </span>
-                <span className="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-[10px] font-bold border border-[#263D88]/20 shadow-xs text-[#263D88]">
-                  VERIFIED PASSES
-                </span>
-                <span className="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-[10px] font-bold border border-[#263D88]/20 shadow-xs text-[#263D88]">
-                  CAMPUS AI CHATBOT
-                </span>
-                <span className="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-[10px] font-bold border border-[#263D88]/20 shadow-xs text-[#263D88]">
-                  CAMPUS NAVIGATION
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* The Mobile App Shell / Expanded View */}
         <div
           className={`w-full transition-all duration-300 relative bg-white flex flex-col ${
@@ -215,12 +164,6 @@ const MainAppContent: React.FC = () => {
 
           {/* Sticky Global Bottom Navigation (hide when search or sub-service is open) */}
           {!isSearchOpen && !activeService && <BottomNav />}
-
-          {/* Floating AI Chatbot trigger button */}
-          {!isChatOpen && <ChatFloatingButton onClick={() => setIsChatOpen(true)} />}
-
-          {/* CampusAI Chatbot Modal Drawer */}
-          <CampusAIChatbot isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
 
           {/* Modals & Overlays */}
           <AppointmentPassModal />

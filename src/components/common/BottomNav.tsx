@@ -27,7 +27,7 @@ export const BottomNav: React.FC = () => {
     },
     {
       id: 'navigation',
-      label: 'Navigation',
+      label: 'Step Guide',
       renderIcon: (isActive) => (
         <svg
           viewBox="0 0 24 24"
@@ -37,25 +37,15 @@ export const BottomNav: React.FC = () => {
           fill="none"
           stroke="currentColor"
           strokeWidth={isActive ? '2.4' : '2'}
+          strokeLinecap="round"
+          strokeLinejoin="round"
         >
-          <path
-            d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"
-            fill={isActive ? '#0C3558' : 'none'}
-            stroke={isActive ? '#0C3558' : '#809FB8'}
-          />
-          <circle
-            cx="12"
-            cy="9"
-            r="2.5"
-            fill={isActive ? 'white' : 'currentColor'}
-            stroke="none"
-          />
-          <path
-            d="M16.5 5.5l2 2m-13 0l2-2"
-            stroke={isActive ? '#53AADF' : '#809FB8'}
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          />
+          {/* Step guide list with directional arrow */}
+          <line x1="10" y1="6" x2="21" y2="6" />
+          <line x1="10" y1="12" x2="21" y2="12" />
+          <line x1="10" y1="18" x2="21" y2="18" />
+          <polyline points="3 6 5 8 7 6" />
+          <polyline points="3 14 5 12 7 14" />
         </svg>
       ),
     },

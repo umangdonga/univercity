@@ -37,6 +37,7 @@ import {
   StudentRecord,
 } from '../lib/supabase';
 import confetti from 'canvas-confetti';
+import { generateStepsForRoute, speakStepInstruction } from '../utils/stepGuide';
 
 interface AppContextType {
   // Auth & Profile
@@ -76,11 +77,14 @@ interface AppContextType {
   selectedLocation: CampusLocation | null;
   setSelectedLocation: (loc: CampusLocation | null) => void;
 
-  // 3D Campus Navigation
+  // Campus Step-by-Step Navigation & Directions
   navDestination: CampusLocation | null;
+  setNavDestination: (location: CampusLocation | null) => void;
   navOrigin: CampusLocation;
+  setNavOrigin: (origin: CampusLocation) => void;
   isNavigating: boolean;
   currentNavStepIndex: number;
+  jumpToNavStep: (index: number) => void;
   isVoiceGuidanceEnabled: boolean;
   setIsVoiceGuidanceEnabled: (enabled: boolean) => void;
   selectedFloor: string;
@@ -200,7 +204,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedLocation, setSelectedLocation] = useState<CampusLocation | null>(null);
 
   // Navigation State
-  const [navOrigin] = useState<CampusLocation>(CAMPUS_LOCATIONS[0]);
+  const [navOrigin, setNavOrigin] = useState<CampusLocation>(CAMPUS_LOCATIONS[0]);
   const [navDestination, setNavDestination] = useState<CampusLocation | null>(CAMPUS_LOCATIONS[1]);
   const [isNavigating, setIsNavigating] = useState<boolean>(false);
   const [currentNavStepIndex, setCurrentNavStepIndex] = useState<number>(0);
@@ -281,12 +285,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUser((prev) => {
       const updated: UserProfile = {
         ...prev,
+        name: profileData.fullName || prev.name,
         profileCompleted: true,
-        avatar: photoUrl || prev.avatar,
-        photo: photoUrl || prev.photo || prev.avatar,
-        studentId: profileData.studentId || prev.studentId,
-        branch: profileData.department || profileData.course || prev.branch,
+        avatar: photoUrl || profileData.profilePhoto || prev.avatar,
+        photo: photoUrl || profileData.profilePhoto || prev.photo || prev.avatar,
+        studentId: profileData.enrollmentNumber || profileData.studentId || prev.studentId,
+        enrollmentNumber: profileData.enrollmentNumber || prev.enrollmentNumber || profileData.studentId || prev.studentId,
+        branch: profileData.branchCourse || profileData.department || profileData.course || prev.branch,
+        branchCourse: profileData.branchCourse || profileData.course || prev.branchCourse,
         contact: profileData.phone || prev.contact,
+        dob: profileData.dateOfBirth || prev.dob,
+        gender: profileData.gender || prev.gender,
+        busIdNumber: profileData.busIdNumber || prev.busIdNumber,
         profileData: profileData,
       };
       localStorage.setItem('campus_connect_user', JSON.stringify(updated));
@@ -298,9 +308,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         name: updated.name,
         avatar: updated.photo || updated.avatar,
         student_id: updated.studentId,
-        degree: profileData.course,
+        degree: profileData.branchCourse || profileData.course,
         semester: profileData.semester,
-        department: profileData.department,
+        department: profileData.branchCourse || profileData.department,
         emergency_contact: profileData.phone,
         profile_completed: true,
         bus_data: updated.busData,
@@ -706,7 +716,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.removeItem('campus_connect_recent_searches');
   };
 
-  // Navigation Logic
+  // Navigation & Step-by-Step Directions Logic
   const startNavigationTo = (location: CampusLocation) => {
     setNavDestination(location);
     setIsNavigating(true);
@@ -714,20 +724,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveTab('navigation');
     setActiveService(null);
     setIsSearchOpen(false);
-    showToast(`Navigating to ${location.name} (${location.walkTimeMin} min walk)`);
+    showToast(`Step Guide started for ${location.name} (~${location.walkTimeMin} min walk)`);
+    const routeSteps = generateStepsForRoute(navOrigin, location);
+    if (isVoiceGuidanceEnabled && routeSteps.length > 0) {
+      speakStepInstruction(`Step Guide started for ${location.name}. Step 1: ${routeSteps[0].instruction}`);
+    }
   };
 
   const stopNavigation = () => {
     setIsNavigating(false);
     setCurrentNavStepIndex(0);
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+  };
+
+  const jumpToNavStep = (index: number) => {
+    if (activeRoute && index >= 0 && index < activeRoute.steps.length) {
+      setCurrentNavStepIndex(index);
+      if (isVoiceGuidanceEnabled) {
+        speakStepInstruction(`Step ${index + 1}: ${activeRoute.steps[index].instruction}`);
+      }
+    }
   };
 
   const nextNavStep = () => {
-    setCurrentNavStepIndex((prev) => prev + 1);
+    if (!activeRoute) return;
+    if (currentNavStepIndex < activeRoute.steps.length - 1) {
+      const nextIdx = currentNavStepIndex + 1;
+      setCurrentNavStepIndex(nextIdx);
+      if (isVoiceGuidanceEnabled) {
+        speakStepInstruction(`Step ${nextIdx + 1}: ${activeRoute.steps[nextIdx].instruction}`);
+      }
+    } else {
+      showToast(`You have arrived at ${activeRoute.destination.name}!`);
+      if (isVoiceGuidanceEnabled) {
+        speakStepInstruction(`You have arrived at ${activeRoute.destination.name}!`);
+      }
+      confetti({
+        particleCount: 50,
+        spread: 60,
+        origin: { y: 0.7 },
+      });
+    }
   };
 
   const prevNavStep = () => {
-    setCurrentNavStepIndex((prev) => Math.max(0, prev - 1));
+    if (currentNavStepIndex > 0) {
+      const prevIdx = currentNavStepIndex - 1;
+      setCurrentNavStepIndex(prevIdx);
+      if (isVoiceGuidanceEnabled && activeRoute) {
+        speakStepInstruction(`Step ${prevIdx + 1}: ${activeRoute.steps[prevIdx].instruction}`);
+      }
+    }
   };
 
   const activeRoute: NavigationRoute | null = navDestination
@@ -736,36 +785,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         destination: navDestination,
         totalDistanceMeters: navDestination.distanceMeters,
         estimatedWalkTimeMin: navDestination.walkTimeMin,
-        steps: [
-          {
-            id: 1,
-            instruction: 'Exit Main Quad and head North toward Knowledge Walkway',
-            distanceMeters: 40,
-            direction: 'straight',
-            floorNote: 'Outdoor Walkway',
-          },
-          {
-            id: 2,
-            instruction: `Turn right near ${navDestination.building} entrance`,
-            distanceMeters: 60,
-            direction: 'right',
-            floorNote: 'Ground Level Entrance',
-          },
-          {
-            id: 3,
-            instruction: `Enter glass lobby and proceed to ${navDestination.floor}`,
-            distanceMeters: 30,
-            direction: navDestination.floor.includes('Ground') ? 'straight' : 'up',
-            floorNote: navDestination.floor,
-          },
-          {
-            id: 4,
-            instruction: `You have arrived at ${navDestination.name}`,
-            distanceMeters: 10,
-            direction: 'arrive',
-            floorNote: `${navDestination.building} • ${navDestination.floor}`,
-          },
-        ],
+        steps: generateStepsForRoute(navOrigin, navDestination),
         pathPoints: [
           { x: navOrigin.x, y: navOrigin.y },
           { x: (navOrigin.x + navDestination.x) / 2, y: navOrigin.y },
@@ -952,9 +972,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         selectedLocation,
         setSelectedLocation,
         navDestination,
+        setNavDestination,
         navOrigin,
+        setNavOrigin,
         isNavigating,
         currentNavStepIndex,
+        jumpToNavStep,
         isVoiceGuidanceEnabled,
         setIsVoiceGuidanceEnabled,
         selectedFloor,

@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { GoogleMapCanvas } from '../map/GoogleMapCanvas';
-import { Campus3DCanvas } from '../map/Campus3DCanvas';
 import { CAMPUS_LOCATIONS } from '../../data/mockCampusData';
-import { CampusLocation, MapMode, LocationCategory } from '../../types';
+import { CampusLocation, LocationCategory, NavStep } from '../../types';
+import { speakStepInstruction } from '../../utils/stepGuide';
 import {
   Search,
   Navigation,
@@ -16,33 +15,35 @@ import {
   ChevronRight,
   ChevronLeft,
   Layers,
-  Map as MapIcon,
-  Box,
   Building,
-  CheckCircle,
-  Sparkles,
-  Info,
+  CheckCircle2,
   X,
   ArrowUp,
-  ArrowRight,
   CornerUpRight,
   CornerUpLeft,
+  ArrowUpDown,
   GraduationCap,
   FlaskConical,
   Utensils,
   BookOpen,
   Car,
   Home,
-  Shield,
-  Accessibility,
+  RotateCcw,
+  Sparkles,
+  ListOrdered,
+  Play,
+  Share2,
 } from 'lucide-react';
 
 export const NavigationScreen: React.FC = () => {
   const {
     navOrigin,
+    setNavOrigin,
     navDestination,
+    setNavDestination,
     isNavigating,
     currentNavStepIndex,
+    jumpToNavStep,
     activeRoute,
     startNavigationTo,
     stopNavigation,
@@ -50,15 +51,13 @@ export const NavigationScreen: React.FC = () => {
     prevNavStep,
     isVoiceGuidanceEnabled,
     setIsVoiceGuidanceEnabled,
-    selectedFloor,
-    setSelectedFloor,
     showToast,
   } = useApp();
 
-  const [mapMode, setMapMode] = useState<MapMode>('google-map');
   const [searchFilter, setSearchFilter] = useState<string>('');
-  const [selectedBuildingFilter, setSelectedBuildingFilter] = useState<string>('All');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('All');
+  const [selectedBuildingFilter, setSelectedBuildingFilter] = useState<string>('All');
+  const [showOriginSelector, setShowOriginSelector] = useState<boolean>(false);
 
   const buildings = [
     'All',
@@ -97,24 +96,34 @@ export const NavigationScreen: React.FC = () => {
     return matchesBuilding && matchesCategory && matchesSearch;
   });
 
+  // Popular quick-pick locations
+  const popularLocations = [
+    CAMPUS_LOCATIONS.find((l) => l.id === 'classroom-b304') || CAMPUS_LOCATIONS[0],
+    CAMPUS_LOCATIONS.find((l) => l.id === 'central-library') || CAMPUS_LOCATIONS[1],
+    CAMPUS_LOCATIONS.find((l) => l.id === 'unique-canteen') || CAMPUS_LOCATIONS[2],
+    CAMPUS_LOCATIONS.find((l) => l.id === 'innovation-lab') || CAMPUS_LOCATIONS[3],
+  ];
+
   const currentStep = activeRoute?.steps[currentNavStepIndex];
   const isLastStep = activeRoute && currentNavStepIndex === activeRoute.steps.length - 1;
   const progressPercent = activeRoute
     ? Math.round(((currentNavStepIndex + 1) / activeRoute.steps.length) * 100)
     : 0;
 
-  const getDirectionIcon = (direction: string) => {
+  const getDirectionIcon = (direction: string, size = 'w-6 h-6') => {
     switch (direction) {
       case 'right':
-        return <CornerUpRight className="w-5 h-5 text-[#53AADF]" />;
+        return <CornerUpRight className={`${size} text-[#263D88]`} />;
       case 'left':
-        return <CornerUpLeft className="w-5 h-5 text-[#53AADF]" />;
+        return <CornerUpLeft className={`${size} text-[#263D88]`} />;
       case 'up':
-        return <Layers className="w-5 h-5 text-[#263D88]" />;
+        return <Layers className={`${size} text-[#263D88]`} />;
+      case 'down':
+        return <Layers className={`${size} text-[#263D88]`} />;
       case 'arrive':
-        return <CheckCircle className="w-5 h-5 text-emerald-500" />;
+        return <CheckCircle2 className={`${size} text-emerald-600`} />;
       default:
-        return <ArrowUp className="w-5 h-5 text-[#263D88]" />;
+        return <ArrowUp className={`${size} text-[#263D88]`} />;
     }
   };
 
@@ -137,6 +146,16 @@ export const NavigationScreen: React.FC = () => {
     }
   };
 
+  // Swap Origin and Destination
+  const handleSwapRoute = () => {
+    if (navDestination) {
+      const prevOrigin = navOrigin;
+      setNavOrigin(navDestination);
+      setNavDestination(prevOrigin);
+      showToast(`Swapped route: from ${navDestination.name} to ${prevOrigin.name}`);
+    }
+  };
+
   return (
     <div className="bg-[#F4F7FB] min-h-screen pb-28 font-['Poppins',sans-serif]">
       {/* 1. Header Bar */}
@@ -144,33 +163,37 @@ export const NavigationScreen: React.FC = () => {
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <div className="p-2 rounded-xl bg-[#263D88] text-white shrink-0 shadow-xs">
-              <Compass className="w-5 h-5" />
+              <ListOrdered className="w-5 h-5" />
             </div>
             <div className="min-w-0">
               <h1 className="text-sm sm:text-base font-bold text-[#101214] tracking-tight truncate">
-                Campus Navigation & Maps
+                Campus Step Guide
               </h1>
               <p className="text-[11px] text-slate-500 truncate">
                 {isNavigating && navDestination
                   ? `Active route to ${navDestination.name}`
-                  : 'Live GPS & 3D Interactive Directional Guidance'}
+                  : 'Turn-by-turn walking steps & landmark directions'}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
+            {/* Audio Speech Announcement Toggle */}
             <button
               onClick={() => {
                 const nextState = !isVoiceGuidanceEnabled;
                 setIsVoiceGuidanceEnabled(nextState);
-                showToast(nextState ? 'Voice guidance enabled' : 'Voice guidance muted');
+                if (nextState && currentStep) {
+                  speakStepInstruction(currentStep.instruction);
+                }
+                showToast(nextState ? 'Voice step guidance enabled' : 'Voice guidance muted');
               }}
               className={`p-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 isVoiceGuidanceEnabled
                   ? 'bg-[#53AADF] text-white shadow-xs'
                   : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
               }`}
-              title={isVoiceGuidanceEnabled ? 'Voice Guidance Active' : 'Voice Guidance Muted'}
+              title={isVoiceGuidanceEnabled ? 'Voice Guidance Active (Tap to Mute)' : 'Voice Guidance Muted (Tap to Enable)'}
             >
               {isVoiceGuidanceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </button>
@@ -178,63 +201,24 @@ export const NavigationScreen: React.FC = () => {
             {isNavigating && (
               <button
                 onClick={stopNavigation}
-                className="py-1.5 px-3 rounded-xl bg-red-50 text-[#FF0000] border border-red-200 text-xs font-bold hover:bg-red-100 transition-colors cursor-pointer active:scale-95"
+                className="py-1.5 px-3 rounded-xl bg-red-50 text-[#FF0000] border border-red-200 text-xs font-bold hover:bg-red-100 transition-colors cursor-pointer active:scale-95 flex items-center gap-1"
               >
-                End Route
+                <X className="w-3.5 h-3.5" />
+                <span>End Guide</span>
               </button>
             )}
-          </div>
-        </div>
-
-        {/* 2. View Mode Tabs (Google Map, Campus 3D, Indoor Floors) */}
-        <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
-          <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-2xl w-full">
-            <button
-              onClick={() => setMapMode('google-map')}
-              className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                mapMode === 'google-map'
-                  ? 'bg-[#263D88] text-white shadow-xs'
-                  : 'text-slate-600 hover:text-[#263D88]'
-              }`}
-            >
-              <MapIcon className="w-3.5 h-3.5" />
-              <span className="truncate">Google Map</span>
-            </button>
-
-            <button
-              onClick={() => setMapMode('campus-3d')}
-              className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                mapMode === 'campus-3d'
-                  ? 'bg-[#263D88] text-white shadow-xs'
-                  : 'text-slate-600 hover:text-[#263D88]'
-              }`}
-            >
-              <Box className="w-3.5 h-3.5" />
-              <span className="truncate">Campus 3D</span>
-            </button>
-
-            <button
-              onClick={() => setMapMode('indoor-blueprint')}
-              className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                mapMode === 'indoor-blueprint'
-                  ? 'bg-[#263D88] text-white shadow-xs'
-                  : 'text-slate-600 hover:text-[#263D88]'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span className="truncate">Indoor Floors</span>
-            </button>
           </div>
         </div>
       </div>
 
       <main className="px-4 py-3.5 space-y-4 max-w-md mx-auto sm:max-w-xl md:max-w-3xl">
-        {/* 3. PROMINENT ROUTE OVERVIEW CARD (Origin -> Destination) */}
+        {/* 2. ROUTE ITINERARY CARD (Origin -> Destination) */}
         {navDestination && (
-          <section className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-md space-y-3.5">
+          <section className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-sm space-y-3.5">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#263D88] bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
-                {isNavigating ? 'Navigation in progress' : 'Planned Route Preview'}
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#263D88] bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100 flex items-center gap-1">
+                <Footprints className="w-3 h-3 text-[#53AADF]" />
+                {isNavigating ? 'Walking Guide In Progress' : 'Planned Route Preview'}
               </span>
               <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
                 <span className="flex items-center gap-1 text-[#263D88]">
@@ -249,41 +233,56 @@ export const NavigationScreen: React.FC = () => {
               </div>
             </div>
 
-            {/* Origin -> Destination Travel Points */}
-            <div className="bg-[#F4F7FB] rounded-2xl p-3 border border-slate-100 space-y-2.5">
+            {/* Origin & Destination Box */}
+            <div className="bg-[#F4F7FB] rounded-2xl p-3.5 border border-slate-100 relative space-y-3">
               {/* Origin */}
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 shadow-2xs">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-pulse" />
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <div className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 shadow-2xs mt-0.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase font-bold text-slate-400">Start / Departure Point</p>
+                    <p className="text-xs font-bold text-[#101214] truncate">{navOrigin.name}</p>
+                    <p className="text-[11px] text-slate-500 truncate">{navOrigin.building} • {navOrigin.floor}</p>
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] uppercase font-bold text-slate-400">Start / Your Location</p>
-                  <p className="text-xs font-bold text-[#101214] truncate">
-                    {navOrigin.name} ({navOrigin.building})
-                  </p>
-                </div>
+
+                <button
+                  onClick={() => setShowOriginSelector(!showOriginSelector)}
+                  className="text-[11px] font-semibold text-[#263D88] hover:text-[#53AADF] px-2 py-1 rounded-lg bg-white border border-slate-200 shrink-0 cursor-pointer shadow-2xs"
+                >
+                  Change
+                </button>
               </div>
 
-              {/* Connecting Dashed Line */}
-              <div className="ml-3.5 pl-3 border-l-2 border-dashed border-[#53AADF]/60 py-0.5" />
+              {/* Connecting Line with Swap Button */}
+              <div className="relative pl-3.5 py-0.5 flex items-center">
+                <div className="w-0.5 h-6 bg-slate-300 ml-[11px]" />
+                <button
+                  onClick={handleSwapRoute}
+                  className="absolute left-1 top-1/2 -translate-y-1/2 p-1 rounded-full bg-white border border-slate-200 text-[#263D88] hover:bg-[#BADDF2]/30 transition-all shadow-xs cursor-pointer active:scale-90"
+                  title="Swap Departure and Destination"
+                >
+                  <ArrowUpDown className="w-3 h-3" />
+                </button>
+              </div>
 
               {/* Destination */}
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-full bg-[#263D88] text-white flex items-center justify-center shrink-0 shadow-2xs">
-                  <MapPin className="w-4 h-4 fill-white text-[#263D88]" />
+              <div className="flex items-start gap-2.5 min-w-0">
+                <div className="w-7 h-7 rounded-full bg-[#263D88] text-white flex items-center justify-center shrink-0 shadow-2xs mt-0.5">
+                  <MapPin className="w-3.5 h-3.5 fill-white text-[#263D88]" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <p className="text-[10px] uppercase font-bold text-[#263D88]">Destination</p>
                     {navDestination.roomNumber && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-white text-slate-800 border border-slate-200">
+                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-white text-slate-800 border border-slate-200">
                         {navDestination.roomNumber}
                       </span>
                     )}
                   </div>
-                  <p className="text-xs font-bold text-[#101214] truncate">
-                    {navDestination.name}
-                  </p>
+                  <p className="text-xs font-bold text-[#101214] truncate">{navDestination.name}</p>
                   <p className="text-[11px] text-slate-500 truncate">
                     {navDestination.building} • {navDestination.floor}
                   </p>
@@ -291,35 +290,50 @@ export const NavigationScreen: React.FC = () => {
               </div>
             </div>
 
-            {/* Navigation Action Buttons */}
-            {!isNavigating ? (
-              <div className="flex items-center gap-2 pt-1">
-                <button
-                  onClick={() => startNavigationTo(navDestination)}
-                  className="flex-1 py-3 px-4 rounded-xl bg-[#263D88] hover:bg-[#1E2F6B] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-[#263D88]/20 transition-all active:scale-98 cursor-pointer"
-                >
-                  <Navigation className="w-4 h-4 fill-white text-[#263D88]" />
-                  <span>Start Walking Navigation</span>
-                </button>
-                <button
-                  onClick={() => {
-                    const nextMode = mapMode === 'google-map' ? 'campus-3d' : 'google-map';
-                    setMapMode(nextMode);
-                  }}
-                  className="py-3 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#263D88] text-xs font-bold transition-colors cursor-pointer"
-                  title="Switch Map View"
-                >
-                  {mapMode === 'google-map' ? <Box className="w-4 h-4" /> : <MapIcon className="w-4 h-4" />}
-                </button>
+            {/* Origin Quick Selector Dropdown (Optional drawer) */}
+            {showOriginSelector && (
+              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-2 animate-in fade-in">
+                <p className="text-[11px] font-bold text-slate-600">Select Departure Point:</p>
+                <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto pr-1">
+                  {CAMPUS_LOCATIONS.slice(0, 8).map((loc) => (
+                    <button
+                      key={loc.id}
+                      onClick={() => {
+                        setNavOrigin(loc);
+                        setShowOriginSelector(false);
+                        showToast(`Start location set to ${loc.name}`);
+                      }}
+                      className={`p-2 rounded-xl text-left truncate transition-colors cursor-pointer border ${
+                        navOrigin.id === loc.id
+                          ? 'bg-[#263D88] text-white border-[#263D88] font-bold'
+                          : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
+                      }`}
+                    >
+                      <p className="font-semibold truncate text-[11px]">{loc.name}</p>
+                      <p className="text-[10px] opacity-75 truncate">{loc.building}</p>
+                    </button>
+                  ))}
+                </div>
               </div>
-            ) : null}
+            )}
+
+            {/* Start Navigation Action Button if not currently active */}
+            {!isNavigating && (
+              <button
+                onClick={() => startNavigationTo(navDestination)}
+                className="w-full py-3.5 px-4 rounded-2xl bg-[#263D88] hover:bg-[#1E2F6B] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-[#263D88]/20 transition-all active:scale-98 cursor-pointer"
+              >
+                <Play className="w-4 h-4 fill-white text-[#263D88]" />
+                <span>Start Step-by-Step Walking Guide</span>
+              </button>
+            )}
           </section>
         )}
 
-        {/* 4. ACTIVE STEP-BY-STEP GUIDANCE CARD */}
+        {/* 3. ACTIVE STEP GUIDANCE CARD (Turn-by-turn instruction highlight) */}
         {isNavigating && activeRoute && currentStep && (
-          <section className="bg-white rounded-3xl p-5 border-2 border-[#263D88]/20 shadow-xl shadow-[#263D88]/10 space-y-4 animate-in fade-in slide-in-from-bottom-2">
-            {/* Step progress & header */}
+          <section className="bg-white rounded-3xl p-5 border-2 border-[#263D88]/30 shadow-lg space-y-4 animate-in fade-in">
+            {/* Step Progress & Header */}
             <div className="space-y-2 pb-2 border-b border-slate-100">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -328,7 +342,7 @@ export const NavigationScreen: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      Turn-by-turn Guidance
+                      Current Guidance Step
                     </span>
                     <p className="text-xs font-bold text-[#101214]">
                       Step {currentNavStepIndex + 1} of {activeRoute.steps.length}
@@ -338,12 +352,12 @@ export const NavigationScreen: React.FC = () => {
 
                 <div className="text-right">
                   <span className="text-xs font-bold text-[#263D88]">{progressPercent}% complete</span>
-                  <p className="text-[10px] text-slate-400">~{activeRoute.estimatedWalkTimeMin} min</p>
+                  <p className="text-[10px] text-slate-400">~{activeRoute.estimatedWalkTimeMin} min total</p>
                 </div>
               </div>
 
-              {/* Visual Progress Bar */}
-              <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+              {/* Progress Bar */}
+              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                 <div
                   className="bg-[#263D88] h-full rounded-full transition-all duration-300"
                   style={{ width: `${progressPercent}%` }}
@@ -351,44 +365,67 @@ export const NavigationScreen: React.FC = () => {
               </div>
             </div>
 
-            {/* Current Direction Card */}
+            {/* Prominent Current Step Display */}
             <div className="p-4 rounded-2xl bg-[#BADDF2]/20 border border-[#BADDF2] flex items-start gap-3.5">
-              <div className="p-2.5 rounded-xl bg-white border border-[#BADDF2] shadow-xs shrink-0 mt-0.5">
-                {getDirectionIcon(currentStep.direction)}
+              <div className="p-3 rounded-2xl bg-white border border-[#BADDF2] shadow-xs shrink-0 mt-0.5">
+                {getDirectionIcon(currentStep.direction, 'w-6 h-6')}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-xs sm:text-sm font-bold text-[#101214] leading-relaxed">
                   {currentStep.instruction}
                 </p>
-                <div className="flex items-center gap-3 mt-2 text-[11px] text-[#263D88] font-semibold flex-wrap">
-                  <span className="flex items-center gap-1">
+
+                {/* Badges: Distance & Landmark */}
+                <div className="flex items-center gap-2.5 mt-2.5 text-[11px] text-[#263D88] font-semibold flex-wrap">
+                  <span className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-[#BADDF2]/80 shadow-2xs">
                     <Footprints className="w-3.5 h-3.5 text-[#53AADF]" />
-                    {currentStep.distanceMeters}m to next landmark
+                    <span>{currentStep.distanceMeters}m walk</span>
                   </span>
+
+                  {currentStep.landmark && (
+                    <span className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-[#BADDF2]/80 text-slate-700 shadow-2xs">
+                      <Sparkles className="w-3 h-3 text-amber-500" />
+                      <span>{currentStep.landmark}</span>
+                    </span>
+                  )}
+
                   {currentStep.floorNote && (
-                    <span className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-md border border-[#BADDF2]">
+                    <span className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-[#BADDF2]/80 text-[#263D88] shadow-2xs">
                       <Layers className="w-3 h-3 text-[#263D88]" />
-                      {currentStep.floorNote}
+                      <span>{currentStep.floorNote}</span>
                     </span>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Step Controls (Prev / Next) */}
+            {/* Action Buttons: Prev / Next / Replay Voice */}
             <div className="flex items-center gap-2 pt-1">
               <button
                 onClick={prevNavStep}
                 disabled={currentNavStepIndex === 0}
-                className="py-2.5 px-3.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 transition-colors disabled:opacity-40 flex items-center gap-1 cursor-pointer"
+                className="py-3 px-3.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 transition-colors disabled:opacity-40 flex items-center gap-1 cursor-pointer"
               >
                 <ChevronLeft className="w-4 h-4" />
                 <span>Prev</span>
               </button>
 
               <button
+                onClick={() => {
+                  if (currentStep) {
+                    speakStepInstruction(currentStep.instruction);
+                    showToast('Playing voice instruction');
+                  }
+                }}
+                className="p-3 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 transition-colors cursor-pointer"
+                title="Hear Instruction Voice"
+              >
+                <Volume2 className="w-4 h-4 text-[#263D88]" />
+              </button>
+
+              <button
                 onClick={nextNavStep}
-                className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-98 cursor-pointer ${
+                className={`flex-1 py-3.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-98 cursor-pointer ${
                   isLastStep
                     ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
                     : 'bg-[#263D88] hover:bg-[#1E2F6B] text-white shadow-[#263D88]/20'
@@ -396,12 +433,12 @@ export const NavigationScreen: React.FC = () => {
               >
                 {isLastStep ? (
                   <>
-                    <CheckCircle className="w-4 h-4 text-emerald-200" />
+                    <CheckCircle2 className="w-4 h-4 text-emerald-200" />
                     <span>Arrived at Destination!</span>
                   </>
                 ) : (
                   <>
-                    <span>Next Direction</span>
+                    <span>Next Step Direction</span>
                     <ChevronRight className="w-4 h-4 text-[#53AADF]" />
                   </>
                 )}
@@ -410,91 +447,147 @@ export const NavigationScreen: React.FC = () => {
           </section>
         )}
 
-        {/* 5. Render Map according to selected view mode */}
-        {mapMode === 'google-map' && (
-          <GoogleMapCanvas onLocationSelect={(loc) => startNavigationTo(loc)} />
-        )}
-
-        {mapMode === 'campus-3d' && (
-          <Campus3DCanvas onLocationSelect={(loc) => startNavigationTo(loc)} />
-        )}
-
-        {mapMode === 'indoor-blueprint' && (
-          <div className="bg-white rounded-3xl p-4 border border-slate-200 shadow-sm space-y-4">
+        {/* 4. COMPLETE STEP-BY-STEP ROADMAP / TIMELINE */}
+        {activeRoute && (
+          <section className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-3.5">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold text-[#101214]">Building Floor Blueprints</h3>
-                <p className="text-xs text-slate-500">Classroom B 304, Labs, Auditorium & Elevators</p>
+                <h2 className="text-xs font-bold text-[#101214] uppercase tracking-wider flex items-center gap-1.5">
+                  <ListOrdered className="w-4 h-4 text-[#263D88]" />
+                  <span>Full Steps Roadmap ({activeRoute.steps.length} Steps)</span>
+                </h2>
+                <p className="text-[11px] text-slate-500">Tap any step to inspect or jump to it</p>
               </div>
+              <span className="text-[11px] font-semibold text-[#263D88] bg-blue-50 px-2 py-0.5 rounded-md">
+                Total: {activeRoute.totalDistanceMeters}m
+              </span>
+            </div>
 
-              {/* Floor Switcher */}
-              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
-                {['Ground', '1st Floor', '2nd Floor', '3rd Floor'].map((floor) => (
-                  <button
-                    key={floor}
-                    onClick={() => setSelectedFloor(floor)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      selectedFloor === floor
-                        ? 'bg-[#263D88] text-white shadow-xs'
-                        : 'text-slate-600 hover:text-[#263D88]'
+            {/* Vertical Step Timeline */}
+            <div className="space-y-2 pt-1">
+              {activeRoute.steps.map((step, idx) => {
+                const isCurrent = idx === currentNavStepIndex;
+                const isPast = idx < currentNavStepIndex;
+
+                return (
+                  <div
+                    key={step.id}
+                    onClick={() => jumpToNavStep(idx)}
+                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 relative ${
+                      isCurrent
+                        ? 'bg-[#BADDF2]/30 border-[#263D88] ring-1 ring-[#263D88] shadow-xs'
+                        : isPast
+                        ? 'bg-slate-50/70 border-slate-200/60 opacity-80'
+                        : 'bg-white border-slate-100 hover:border-slate-300 hover:bg-slate-50'
                     }`}
                   >
-                    {floor.replace(' Floor', '')}
-                  </button>
-                ))}
-              </div>
+                    {/* Step index badge */}
+                    <div
+                      className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 font-bold text-xs mt-0.5 transition-colors ${
+                        isCurrent
+                          ? 'bg-[#263D88] text-white shadow-xs'
+                          : isPast
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      {isPast ? <CheckCircle2 className="w-4 h-4" /> : idx + 1}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span
+                          className={`text-[10px] font-bold uppercase tracking-wider ${
+                            isCurrent ? 'text-[#263D88]' : isPast ? 'text-emerald-700' : 'text-slate-400'
+                          }`}
+                        >
+                          Step {idx + 1} {isCurrent && '• (Active)'} {isPast && '• Completed'}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-semibold">{step.distanceMeters}m</span>
+                      </div>
+
+                      <p
+                        className={`text-xs font-semibold leading-relaxed mt-0.5 ${
+                          isCurrent ? 'text-[#101214] font-bold' : 'text-slate-700'
+                        }`}
+                      >
+                        {step.instruction}
+                      </p>
+
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap text-[10px]">
+                        {step.landmark && (
+                          <span className="text-slate-500 font-medium flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 text-amber-500" />
+                            {step.landmark}
+                          </span>
+                        )}
+                        {step.floorNote && (
+                          <span className="text-slate-400">• {step.floorNote}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 self-center">
+                      {getDirectionIcon(step.direction, 'w-4 h-4')}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-
-            {/* Visual Floor Blueprint Map */}
-            <div className="relative h-64 bg-slate-900 rounded-2xl overflow-hidden p-4 border border-slate-700 flex flex-col justify-between">
-              <div className="flex items-center justify-between text-xs text-slate-300">
-                <span className="font-bold text-[#53AADF]">Science Block B • {selectedFloor}</span>
-                <span className="text-[11px] text-slate-400">Emergency Exit: North Wing</span>
-              </div>
-
-              {/* Floor Layout schematic */}
-              <div className="grid grid-cols-3 gap-2 my-auto">
-                <div
-                  onClick={() => {
-                    const loc = CAMPUS_LOCATIONS.find((l) => l.id === 'classroom-b304');
-                    if (loc) startNavigationTo(loc);
-                  }}
-                  className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
-                    navDestination?.id === 'classroom-b304' && selectedFloor === '3rd Floor'
-                      ? 'bg-blue-600 text-white border-white scale-105 shadow-md shadow-blue-500/40'
-                      : 'bg-slate-800 text-slate-200 border-slate-700 hover:border-[#53AADF]'
-                  }`}
-                >
-                  <p className="text-xs font-bold">Room B-304</p>
-                  <p className="text-[10px] text-slate-400">Classroom (Active)</p>
-                </div>
-
-                <div
-                  onClick={() => {
-                    const loc = CAMPUS_LOCATIONS.find((l) => l.id === 'iot-hardware-lab');
-                    if (loc) startNavigationTo(loc);
-                  }}
-                  className="p-3 rounded-xl bg-slate-800 text-slate-200 border border-slate-700 text-center hover:border-[#53AADF] cursor-pointer"
-                >
-                  <p className="text-xs font-bold">Room B-305</p>
-                  <p className="text-[10px] text-slate-400">IoT Hardware Lab</p>
-                </div>
-
-                <div className="p-3 rounded-xl bg-slate-800 text-slate-200 border border-slate-700 text-center">
-                  <p className="text-xs font-bold">Lift / Stairs</p>
-                  <p className="text-[10px] text-slate-400">Main Quad Core</p>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800">
-                <span>Wi-Fi: Eduroam_5G</span>
-                <span>Restrooms: Near Staircase A</span>
-              </div>
-            </div>
-          </div>
+          </section>
         )}
 
-        {/* 6. CAMPUS DESTINATION SELECTOR / DIRECTORY */}
+        {/* 5. POPULAR DESTINATIONS QUICK-PICKS */}
+        {!isNavigating && (
+          <section className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-100 shadow-xs space-y-3">
+            <h2 className="text-xs font-bold text-[#101214] uppercase tracking-wider flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-[#263D88]" />
+              <span>Frequent Campus Destinations</span>
+            </h2>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              {popularLocations.map((loc) => {
+                const Icon = getCategoryIcon(loc.category);
+                const isCurrentDest = navDestination?.id === loc.id;
+
+                return (
+                  <div
+                    key={loc.id}
+                    onClick={() => startNavigationTo(loc)}
+                    className={`p-3 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between group ${
+                      isCurrentDest
+                        ? 'bg-[#BADDF2]/30 border-[#263D88]'
+                        : 'bg-[#F4F7FB] border-slate-100 hover:border-[#53AADF] hover:bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="w-8 h-8 rounded-xl bg-white text-[#263D88] flex items-center justify-center shadow-2xs group-hover:bg-[#263D88] group-hover:text-white transition-colors">
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <span className="text-[10px] font-bold text-[#263D88] bg-white px-2 py-0.5 rounded-full border border-slate-200">
+                        {loc.distanceMeters}m
+                      </span>
+                    </div>
+
+                    <div className="mt-2.5">
+                      <h4 className="text-xs font-bold text-[#101214] truncate group-hover:text-[#263D88] transition-colors">
+                        {loc.name}
+                      </h4>
+                      <p className="text-[10px] text-slate-500 truncate mt-0.5">{loc.building}</p>
+                    </div>
+
+                    <div className="mt-2 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[10px] text-[#263D88] font-bold">
+                      <span>Start Guide</span>
+                      <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* 6. CAMPUS DESTINATION DIRECTORY */}
         <section className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-100 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-bold text-[#101214] uppercase tracking-wider flex items-center gap-1.5">
@@ -502,11 +595,11 @@ export const NavigationScreen: React.FC = () => {
               <span>Campus Destination Directory</span>
             </h2>
             <span className="text-xs text-slate-500 font-medium">
-              {filteredLocations.length} locations
+              {filteredLocations.length} destinations
             </span>
           </div>
 
-          {/* Search filter input */}
+          {/* Search Filter Input */}
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
             <input
@@ -519,14 +612,14 @@ export const NavigationScreen: React.FC = () => {
             {searchFilter && (
               <button
                 onClick={() => setSearchFilter('')}
-                className="absolute right-3 top-2.5 p-0.5 rounded-full text-slate-400 hover:text-slate-600"
+                className="absolute right-3 top-2.5 p-0.5 rounded-full text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
 
-          {/* Category Quick Chips (Hick's Law - Immediate Category Selection) */}
+          {/* Category Quick Chips */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
             {categoryQuickFilters.map((cat) => {
               const Icon = cat.icon;
@@ -549,7 +642,7 @@ export const NavigationScreen: React.FC = () => {
             })}
           </div>
 
-          {/* Building Pills */}
+          {/* Building Filter Pills */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar pt-0.5 border-t border-slate-100">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">
               Building:
@@ -571,15 +664,15 @@ export const NavigationScreen: React.FC = () => {
 
           {/* Locations List */}
           <div
-            className="space-y-2.5 max-h-80 overflow-y-auto pr-1"
+            className="space-y-2.5 max-h-96 overflow-y-auto pr-1"
             style={{ scrollbarWidth: 'thin' }}
           >
             {filteredLocations.length === 0 ? (
               <div className="text-center py-8 bg-slate-50 rounded-2xl p-4">
                 <MapPin className="w-8 h-8 text-slate-300 mx-auto mb-1.5" />
-                <p className="text-xs font-bold text-slate-700">No matching campus location</p>
+                <p className="text-xs font-bold text-slate-700">No matching campus destination</p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Try searching with room number like "B304" or category like "Canteen"
+                  Try searching with room number like "B 304" or category like "Canteen"
                 </p>
               </div>
             ) : (
@@ -645,8 +738,8 @@ export const NavigationScreen: React.FC = () => {
                           : 'bg-[#BADDF2]/40 text-[#263D88] hover:bg-[#263D88] hover:text-white'
                       }`}
                     >
-                      <Navigation className="w-3 h-3" />
-                      <span>Route</span>
+                      <Footprints className="w-3.5 h-3.5" />
+                      <span>Guide</span>
                     </button>
                   </div>
                 );

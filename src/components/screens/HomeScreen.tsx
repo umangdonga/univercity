@@ -1,16 +1,13 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Header } from '../common/Header';
-import { Campus3DCanvas } from '../map/Campus3DCanvas';
 import {
-  CAMPUS_LOCATIONS,
   CANTEENS_DATA,
   CAMPUS_EVENTS_DATA,
   BUS_ROUTES_DATA,
 } from '../../data/mockCampusData';
 import {
   Search,
-  Navigation,
   Bus,
   GraduationCap,
   FlaskConical,
@@ -115,17 +112,11 @@ export const HomeScreen: React.FC = () => {
     setActiveTab,
     setIsSearchOpen,
     openService,
-    startNavigationTo,
     registeredEvents,
     toggleEventRegistration,
     setActiveEventModal,
     showToast,
   } = useApp();
-
-  // Next class & Bus route data for Student
-  const nextClassLoc =
-    CAMPUS_LOCATIONS.find((loc) => loc.id === 'classroom-b304') || CAMPUS_LOCATIONS[0];
-  const busRoute4 = BUS_ROUTES_DATA[0];
 
   // News detail modal state
   const [selectedNews, setSelectedNews] = useState<CampusNewsItem | null>(null);
@@ -144,52 +135,7 @@ export const HomeScreen: React.FC = () => {
 
     return (
       <div className="space-y-6">
-        {/* 1. Campus Map Section (Page 15) */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between px-1">
-            <h3 className="font-bold text-base text-[#101214]">Campus Map</h3>
-            <button
-              onClick={() => setActiveTab('navigation')}
-              className="text-xs font-bold text-[#263D88] hover:text-[#53AADF] transition-colors cursor-pointer"
-            >
-              Interactive Map →
-            </button>
-          </div>
-
-          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden">
-            {/* Map Preview Graphic with 3D Canvas / Campus Overview */}
-            <div className="relative h-48 bg-[#EAF2F8] overflow-hidden">
-              <Campus3DCanvas compact interactive={false} onLocationSelect={(loc) => startNavigationTo(loc)} />
-
-              {/* Floating Pill: View Full Map */}
-              <div className="absolute bottom-3.5 left-1/2 -translate-x-1/2 z-20">
-                <button
-                  onClick={() => setActiveTab('navigation')}
-                  className="px-4 py-2 rounded-full bg-white/95 hover:bg-white text-[#101214] font-bold text-xs shadow-md border border-slate-200/80 flex items-center gap-2 transition-all cursor-pointer hover:scale-105 active:scale-95 backdrop-blur-md"
-                >
-                  <BookOpen className="w-3.5 h-3.5 text-[#263D88]" />
-                  <span>View Full Map</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Sub-card: Explore Campus Buildings */}
-            <div
-              onClick={() => setActiveTab('navigation')}
-              className="p-4 flex items-center justify-between hover:bg-slate-50/80 transition-colors cursor-pointer border-t border-slate-100"
-            >
-              <div>
-                <h4 className="text-sm font-bold text-[#101214]">Explore Campus Buildings</h4>
-                <p className="text-xs text-slate-500 mt-0.5">Find labs, department, and reception area</p>
-              </div>
-              <div className="w-8 h-8 rounded-full bg-[#BADDF2]/40 hover:bg-[#263D88] hover:text-white flex items-center justify-center text-[#263D88] transition-colors shrink-0">
-                <ChevronRight className="w-4 h-4" />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* 2. Quick Action - 2x2 Grid of Navy Cards (Page 15) */}
+        {/* Quick Action - 2x2 Grid of Navy Cards (Page 15) */}
         <section className="space-y-3">
           <div className="flex items-center justify-between px-1">
             <h3 className="font-bold text-base text-[#101214]">Quick Action</h3>
@@ -260,68 +206,7 @@ export const HomeScreen: React.FC = () => {
           </div>
         </section>
 
-        {/* 3. Next Class & Campus Shuttle - 2-Column Schedule */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          {/* Next Class Card */}
-          <div className="bg-[#263D88] rounded-3xl p-4 text-white relative overflow-hidden shadow-sm flex flex-col justify-between">
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-[10px] text-white/70 uppercase tracking-wider font-semibold">Next Class</p>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white">
-                  3rd Floor
-                </span>
-              </div>
-              <p className="font-bold text-base leading-tight mt-1">Classroom B 304</p>
-              <p className="text-[11px] mt-1 text-white/90">B-Block • Advanced UI Design</p>
-              <p className="text-xs font-semibold mt-2 text-[#BADDF2]">10:30 AM - 11:30 AM</p>
-            </div>
-
-            <div className="relative z-10 mt-3 pt-2.5 border-t border-white/15 flex items-center justify-between">
-              <span className="text-[10px] text-white/80">~3 min walk (180m)</span>
-              <button
-                onClick={() => startNavigationTo(nextClassLoc)}
-                className="py-1.5 px-3 rounded-xl bg-white text-[#263D88] font-bold text-[11px] flex items-center gap-1 hover:bg-[#BADDF2] transition-colors shadow-xs cursor-pointer active:scale-95"
-              >
-                <Navigation className="w-3 h-3 fill-[#263D88]" />
-                <span>Navigate</span>
-              </button>
-            </div>
-            <div className="absolute -right-3 -bottom-3 opacity-10 pointer-events-none">
-              <GraduationCap className="w-24 h-24" />
-            </div>
-          </div>
-
-          {/* Campus Shuttle Card */}
-          <div className="bg-white border-2 border-[#BADDF2] rounded-3xl p-4 relative overflow-hidden shadow-xs flex flex-col justify-between">
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-[10px] text-[#101214]/60 uppercase tracking-wider font-semibold">Campus Shuttle</p>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">
-                  {busRoute4.availableSeats} seats left
-                </span>
-              </div>
-              <p className="font-bold text-base text-[#263D88] mt-1">{busRoute4.busNumber} - {busRoute4.title}</p>
-              <p className="text-[11px] mt-1 text-[#53AADF] font-bold">Arriving: {busRoute4.nextTiming}</p>
-              <p className="text-[11px] text-slate-500 mt-1">Route: {busRoute4.routeNumber}</p>
-            </div>
-
-            <div className="relative z-10 mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-[10px] text-slate-400">{busRoute4.registeredCount} students booked</span>
-              <button
-                onClick={() => openService('bus')}
-                className="py-1.5 px-3 rounded-xl bg-[#BADDF2]/50 hover:bg-[#263D88] hover:text-white text-[#263D88] font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer active:scale-95"
-              >
-                <span>Live Route</span>
-                <ArrowRight className="w-3 h-3" />
-              </button>
-            </div>
-            <div className="absolute -right-3 -bottom-3 opacity-5 pointer-events-none text-[#263D88]">
-              <Bus className="w-24 h-24" />
-            </div>
-          </div>
-        </section>
-
-        {/* 4. Canteens Section (Page 15: UNIQUE canteen, SKY Cafe, Leaf Cafe) */}
+        {/* Canteens Section (Page 15: UNIQUE canteen, SKY Cafe, Leaf Cafe) */}
         <section className="space-y-3">
           <div className="flex items-center justify-between px-1">
             <h3 className="font-bold text-base text-[#101214]">Canteens</h3>

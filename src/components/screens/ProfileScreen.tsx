@@ -98,20 +98,40 @@ export const ProfileScreen: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div>
-              <span className="text-slate-400 text-[10px]">Enrollment / Employee ID</span>
-              <p className="font-semibold text-slate-800">{user.studentId || user.profileData?.studentId || '20240582'}</p>
+              <span className="text-slate-400 text-[10px]">Enrollment Number</span>
+              <p className="font-semibold text-slate-800">
+                {user.enrollmentNumber || user.studentId || user.profileData?.enrollmentNumber || '20240582'}
+              </p>
             </div>
             <div>
-              <span className="text-slate-400 text-[10px]">Department</span>
-              <p className="font-semibold text-slate-800">{user.profileData?.department || user.branch || 'Information Technology'}</p>
+              <span className="text-slate-400 text-[10px]">Branch / Course</span>
+              <p className="font-semibold text-slate-800 truncate">
+                {user.branchCourse || user.profileData?.branchCourse || user.profileData?.course || user.branch || 'B.Tech (CSE)'}
+              </p>
             </div>
             <div>
-              <span className="text-slate-400 text-[10px]">Course / Program</span>
-              <p className="font-semibold text-slate-800 truncate">{user.profileData?.course || 'BCA Specialization'}</p>
+              <span className="text-slate-400 text-[10px]">Phone Number</span>
+              <p className="font-semibold text-slate-800">
+                {user.contact || user.profileData?.phone || '+91 98765 43210'}
+              </p>
             </div>
             <div>
-              <span className="text-slate-400 text-[10px]">Contact Phone</span>
-              <p className="font-semibold text-slate-800">{user.profileData?.phone || user.contact || '+91 98765 43210'}</p>
+              <span className="text-slate-400 text-[10px]">Date of Birth</span>
+              <p className="font-semibold text-slate-800">
+                {user.dob || user.profileData?.dateOfBirth || '2003-05-14'}
+              </p>
+            </div>
+            <div>
+              <span className="text-slate-400 text-[10px]">Gender</span>
+              <p className="font-semibold text-slate-800">
+                {user.gender || user.profileData?.gender || 'Male'}
+              </p>
+            </div>
+            <div>
+              <span className="text-slate-400 text-[10px]">Bus ID Number</span>
+              <p className="font-semibold text-slate-800">
+                {user.busIdNumber || user.profileData?.busIdNumber || (user.busData?.passNumber ? user.busData.passNumber : 'Not Registered')}
+              </p>
             </div>
           </div>
         </section>

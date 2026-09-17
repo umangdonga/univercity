@@ -1,11 +1,19 @@
 export type UserRole = 'student';
 
 export interface UserProfileData {
+  fullName?: string;
+  branchCourse?: string;
+  enrollmentNumber?: string;
+  email?: string;
+  profilePhoto?: string;
+  phone?: string;
+  dateOfBirth?: string;
+  gender?: 'Male' | 'Female' | 'Other' | 'Prefer not to say' | string;
+  busIdNumber?: string;
   studentId?: string;
   department?: string;
   course?: string;
   semester?: string;
-  phone?: string;
   address?: string;
   emergencyContact?: string;
   bloodGroup?: string;
@@ -39,13 +47,17 @@ export interface UserProfile {
   photo?: string;
   role: UserRole;
   studentId: string;
+  enrollmentNumber?: string;
   branch: string;
+  branchCourse?: string;
   department?: string;
   degree?: string;
   semester?: string;
   contact: string;
   emergencyContact?: string;
   dob: string;
+  gender?: string;
+  busIdNumber?: string;
   occupation: string;
   isAuthenticatedWithGoogle: boolean;
   isAuthenticated?: boolean;
@@ -96,6 +108,7 @@ export interface NavStep {
   distanceMeters: number;
   direction: 'straight' | 'left' | 'right' | 'up' | 'down' | 'arrive';
   floorNote?: string;
+  landmark?: string;
 }
 
 export interface NavigationRoute {

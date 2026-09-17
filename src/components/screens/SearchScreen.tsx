@@ -285,10 +285,10 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onClose }) => {
 
                 <button
                   onClick={() => handleSelectLocation(loc)}
-                  className="shrink-0 py-2 px-3 rounded-xl bg-[#263D88] text-white text-xs font-bold flex items-center gap-1.5 hover:bg-[#1E2F6B] shadow-sm shadow-[#263D88]/20 transition-all active:scale-95"
+                  className="shrink-0 py-2 px-3 rounded-xl bg-[#263D88] text-white text-xs font-bold flex items-center gap-1.5 hover:bg-[#1E2F6B] shadow-sm shadow-[#263D88]/20 transition-all active:scale-95 cursor-pointer"
                 >
                   <Navigation className="w-3.5 h-3.5 text-[#53AADF]" />
-                  <span>Navigate</span>
+                  <span>Step Guide</span>
                 </button>
               </div>
             );
