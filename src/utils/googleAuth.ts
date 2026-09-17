@@ -97,14 +97,40 @@ async function tryGoogleTokenClient(clientId: string): Promise<GoogleUserPayload
       const google = (window as any).google;
       let settled = false;
 
+      // Timeout in case Google origin_mismatch error window stays open without returning
+      const timer = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          console.warn('Google TokenClient timeout - possible origin_mismatch in popup');
+          window.dispatchEvent(
+            new CustomEvent('campus_connect_auth_warning', {
+              detail: {
+                error: 'origin_mismatch',
+                message: `Google OAuth Error 400: origin_mismatch detected. Please add ${window.location.origin} to Authorized JavaScript origins in Google Cloud Console.`,
+              },
+            })
+          );
+          resolve(null);
+        }
+      }, 6500);
+
       const tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: clientId,
         scope: 'openid profile email',
         callback: async (tokenResponse: any) => {
           if (settled) return;
+          clearTimeout(timer);
           if (tokenResponse.error) {
             console.warn('Google TokenClient response notice:', tokenResponse.error);
             settled = true;
+            window.dispatchEvent(
+              new CustomEvent('campus_connect_auth_warning', {
+                detail: {
+                  error: 'origin_mismatch',
+                  message: `Google OAuth Notice: ${tokenResponse.error}. Check Authorized JavaScript origins in Google Cloud Console.`,
+                },
+              })
+            );
             return resolve(null);
           }
 
@@ -134,8 +160,17 @@ async function tryGoogleTokenClient(clientId: string): Promise<GoogleUserPayload
         },
         error_callback: (error: any) => {
           if (settled) return;
+          clearTimeout(timer);
           console.warn('Google TokenClient popup error:', error);
           settled = true;
+          window.dispatchEvent(
+            new CustomEvent('campus_connect_auth_warning', {
+              detail: {
+                error: 'origin_mismatch',
+                message: `Google OAuth Popup error: ${error?.message || 'origin_mismatch'}. Check Authorized JavaScript origins in Google Cloud Console.`,
+              },
+            })
+          );
           resolve(null);
         },
       });
@@ -157,19 +192,7 @@ export async function triggerRealGoogleAuth(): Promise<GoogleUserPayload> {
     (firebaseConfig as any)?.oAuthClientId ||
     '';
 
-  // 1. Try Google Identity Services TokenClient popup if GSI script is loaded & clientId is available
-  if (clientId && typeof window !== 'undefined' && (window as any).google?.accounts?.oauth2) {
-    try {
-      const gsiUser = await tryGoogleTokenClient(clientId);
-      if (gsiUser && gsiUser.email) {
-        return gsiUser;
-      }
-    } catch (gsiErr) {
-      console.warn('GSI TokenClient attempt notice:', gsiErr);
-    }
-  }
-
-  // 2. Try Firebase Auth Google Sign-In popup
+  // 1. Try Firebase Auth Google Sign-In popup FIRST (Uses firebaseapp.com proxy domain, avoiding client-side origin mismatch)
   if (isFirebaseConfigured) {
     try {
       const fbResult = await signInWithGooglePopup();
@@ -188,16 +211,29 @@ export async function triggerRealGoogleAuth(): Promise<GoogleUserPayload> {
       if (fbErr.message?.includes('cancelled') || fbErr.message?.includes('closed')) {
         throw fbErr;
       }
-      // If domain is unauthorized on live, notify console and continue to server popup flow
+      // If domain is unauthorized on live, notify UI and continue to other flows
       if (fbErr.message?.includes('Unauthorized domain')) {
         window.dispatchEvent(
           new CustomEvent('campus_connect_auth_warning', {
             detail: {
+              error: 'unauthorized_domain',
               message: `Live domain (${window.location.hostname}) must be added to Authorized Domains in Firebase Console or Google Cloud Console.`,
             },
           })
         );
       }
+    }
+  }
+
+  // 2. Try Google Identity Services TokenClient popup if GSI script is loaded & clientId is available
+  if (clientId && typeof window !== 'undefined' && (window as any).google?.accounts?.oauth2) {
+    try {
+      const gsiUser = await tryGoogleTokenClient(clientId);
+      if (gsiUser && gsiUser.email) {
+        return gsiUser;
+      }
+    } catch (gsiErr) {
+      console.warn('GSI TokenClient attempt notice:', gsiErr);
     }
   }
 

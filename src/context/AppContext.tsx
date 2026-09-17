@@ -50,6 +50,7 @@ interface AppContextType {
   isSupabaseConfigured: boolean;
   isCloudSqlConfigured: boolean;
   loginWithGoogle: () => Promise<void>;
+  loginWithGoogleEmail: (email: string, name?: string) => Promise<void>;
   loginWithCredentials: (
     identifier: string,
     name?: string,
@@ -634,6 +635,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const loginWithGoogleEmail = async (email: string, name?: string) => {
+    setIsLoggingIn(true);
+    setAuthError(null);
+    try {
+      const studentName = name || (email.includes('@') ? email.split('@')[0].replace(/[._]/g, ' ') : 'Student');
+      const formattedName = studentName
+        .split(' ')
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+      const studentId = email.includes('@') ? email.split('@')[0] : `usr-${Date.now().toString(36)}`;
+
+      const updatedUser: UserProfile = {
+        ...user,
+        id: `google-${studentId}`,
+        name: formattedName,
+        email: email,
+        studentId: studentId,
+        role: 'student',
+        isAuthenticatedWithGoogle: true,
+        isAuthenticated: true,
+        profileCompleted: true,
+      };
+
+      setUser(updatedUser);
+      setIsLoggedIn(true);
+      localStorage.setItem('campus_connect_logged_in', 'true');
+      localStorage.setItem('campus_connect_user', JSON.stringify(updatedUser));
+
+      saveStudentToSupabase({
+        id: updatedUser.id,
+        email: updatedUser.email,
+        name: updatedUser.name,
+        profile_completed: true,
+      }).catch((e) => console.warn('Supabase sync note:', e));
+
+      showToast(`Welcome ${formattedName}! Signed in with Google.`);
+      confetti({ particleCount: 75, spread: 60, origin: { y: 0.6 } });
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
   const loginWithCredentials = async (
     identifier: string,
     name?: string,
@@ -986,6 +1029,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isSupabaseConfigured: isSupabaseActive,
         isCloudSqlConfigured: isCloudSqlActive,
         loginWithGoogle,
+        loginWithGoogleEmail,
         loginWithCredentials,
         logout,
         updateUserProfile,

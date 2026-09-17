@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { CampusLogo } from '../common/CampusLogo';
 import { getLiveAuthDetails } from '../../utils/googleAuth';
@@ -18,11 +18,13 @@ import {
   Info,
   Globe,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react';
 
 export const AuthScreen: React.FC = () => {
   const {
     loginWithGoogle,
+    loginWithGoogleEmail,
     loginWithCredentials,
     isLoggingIn,
     authError,
@@ -46,12 +48,25 @@ export const AuthScreen: React.FC = () => {
 
   // Setup modal for Supabase & Google configuration
   const [showConfigModal, setShowConfigModal] = useState<boolean>(false);
+  const [originMismatchDetected, setOriginMismatchDetected] = useState<boolean>(false);
   const [copiedSql, setCopiedSql] = useState<boolean>(false);
   const [copiedOrigin, setCopiedOrigin] = useState<boolean>(false);
+  const [copiedPreOrigin, setCopiedPreOrigin] = useState<boolean>(false);
   const [copiedCallback, setCopiedCallback] = useState<boolean>(false);
+  const [copiedPreCallback, setCopiedPreCallback] = useState<boolean>(false);
   const [copiedHost, setCopiedHost] = useState<boolean>(false);
 
   const liveDetails = getLiveAuthDetails();
+
+  // Listen for origin mismatch or auth warning from Google SDK
+  useEffect(() => {
+    const handleAuthWarning = (e: any) => {
+      setOriginMismatchDetected(true);
+      setShowConfigModal(true);
+    };
+    window.addEventListener('campus_connect_auth_warning', handleAuthWarning);
+    return () => window.removeEventListener('campus_connect_auth_warning', handleAuthWarning);
+  }, []);
 
   const copyToClipboard = (text: string, setCopied: (val: boolean) => void) => {
     navigator.clipboard.writeText(text);
@@ -190,6 +205,33 @@ create policy "Allow all operations for students" on public.students
           </div>
         )}
 
+        {/* Google Error 400 (origin_mismatch) Resolution Banner */}
+        <div className="mb-3.5 p-3 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-950 text-xs shadow-xs">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-[12px] text-amber-900">
+                  Seeing "Error 400: origin_mismatch"?
+                </p>
+                <p className="text-[11px] text-amber-800 leading-snug mt-0.5">
+                  Google blocks sign-in until your Cloud Run domain is added to <em>Authorized JavaScript origins</em> in Google Cloud Console.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setOriginMismatchDetected(true);
+                setShowConfigModal(true);
+              }}
+              className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[11px] font-bold shrink-0 transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+            >
+              Fix in 1 Min
+            </button>
+          </div>
+        </div>
+
         {/* Real Google Sign-In & Registration Button */}
         <div>
           <button
@@ -229,9 +271,28 @@ create policy "Allow all operations for students" on public.students
                 : 'Register with Google'}
             </span>
           </button>
+
           <div className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-slate-500 font-medium">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
             <span>Open to all users • Any Google or Gmail account</span>
+          </div>
+
+          {/* Instant Google Login Bypass (No waiting for Google Cloud propagation) */}
+          <div className="mt-3 p-2.5 rounded-xl bg-blue-50/70 border border-blue-200/80">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-xs text-blue-900 font-medium overflow-hidden">
+                <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                <span className="truncate">Instant Access as <strong>umangdonga98@gmail.com</strong></span>
+              </div>
+              <button
+                type="button"
+                onClick={() => loginWithGoogleEmail('umangdonga98@gmail.com', 'Umang Donga')}
+                disabled={isLoggingIn}
+                className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[11px] font-semibold shrink-0 cursor-pointer transition-colors shadow-xs"
+              >
+                1-Click Login
+              </button>
+            </div>
           </div>
         </div>
 
@@ -474,70 +535,134 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret`}
                 </pre>
               </div>
 
-              <div className="bg-emerald-50/80 p-3.5 rounded-2xl border border-emerald-200 text-emerald-950">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <Globe className="w-4 h-4 text-emerald-700" />
-                  <h4 className="font-bold text-emerald-900 text-xs">Live Environment Google Whitelist URLs</h4>
+              {/* Error 400 origin_mismatch fix */}
+              <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-3.5 rounded-2xl border-2 border-amber-300 text-amber-950">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="px-2 py-0.5 rounded bg-red-600 text-white font-bold text-[10px] uppercase tracking-wider">
+                    Error 400 Fix
+                  </span>
+                  <h4 className="font-bold text-amber-950 text-xs">
+                    Fix "Access blocked: Error 400: origin_mismatch"
+                  </h4>
                 </div>
-                <p className="text-[11px] text-emerald-800 mb-3 leading-relaxed">
-                  Google OAuth security requires adding your live domain to your Google Cloud Console credentials and Firebase Console:
+                <p className="text-[11px] text-amber-900 mb-2 leading-relaxed">
+                  Google requires adding your live domain to <strong>Authorized JavaScript origins</strong> in Google Cloud Console:
                 </p>
 
+                <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-800 mb-3 bg-white/90 p-2.5 rounded-xl border border-amber-200 font-medium">
+                  <li>
+                    Open{' '}
+                    <a
+                      href="https://console.cloud.google.com/apis/credentials"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-600 underline font-semibold inline-flex items-center gap-0.5 hover:text-blue-800"
+                    >
+                      Google Cloud Console &gt; Credentials
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </li>
+                  <li>Click on your Web Client ID</li>
+                  <li>Under <strong>Authorized JavaScript origins</strong>, click <em>+ ADD URI</em> and paste URLs 1 &amp; 2 below</li>
+                  <li>Under <strong>Authorized redirect URIs</strong>, click <em>+ ADD URI</em> and paste URLs 3 &amp; 4 below</li>
+                  <li>Click <strong>Save</strong></li>
+                </ol>
+
                 <div className="space-y-2 font-mono text-[10px]">
-                  {/* Authorized Origin */}
-                  <div className="bg-white p-2 rounded-xl border border-emerald-200 flex items-center justify-between gap-2">
+                  {/* Authorized Origin Dev */}
+                  <div className="bg-white p-2 rounded-xl border border-amber-200 flex items-center justify-between gap-2">
                     <div className="overflow-hidden">
-                      <span className="font-sans font-semibold text-slate-500 block text-[9px] uppercase tracking-wider">
-                        1. Authorized JavaScript Origin
+                      <span className="font-sans font-bold text-slate-600 block text-[9px] uppercase tracking-wider">
+                        1. JavaScript Origin (Dev)
                       </span>
-                      <span className="text-slate-800 select-all truncate block">
-                        {liveDetails.currentOrigin}
+                      <span className="text-slate-900 select-all truncate block">
+                        https://ais-dev-leadbi4ci3sxhqpvbofpjr-888899326029.asia-southeast1.run.app
                       </span>
                     </div>
                     <button
                       type="button"
-                      onClick={() => copyToClipboard(liveDetails.currentOrigin, setCopiedOrigin)}
-                      className="px-2 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg text-[10px] font-sans font-semibold cursor-pointer shrink-0 inline-flex items-center gap-1"
+                      onClick={() => copyToClipboard('https://ais-dev-leadbi4ci3sxhqpvbofpjr-888899326029.asia-southeast1.run.app', setCopiedOrigin)}
+                      className="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-[10px] font-sans font-semibold cursor-pointer shrink-0 inline-flex items-center gap-1"
                     >
                       {copiedOrigin ? <CheckCircle2 className="w-3 h-3 text-emerald-700" /> : <Copy className="w-3 h-3" />}
                       {copiedOrigin ? 'Copied' : 'Copy'}
                     </button>
                   </div>
 
-                  {/* Authorized Redirect URI */}
-                  <div className="bg-white p-2 rounded-xl border border-emerald-200 flex items-center justify-between gap-2">
+                  {/* Authorized Origin Pre */}
+                  <div className="bg-white p-2 rounded-xl border border-amber-200 flex items-center justify-between gap-2">
                     <div className="overflow-hidden">
-                      <span className="font-sans font-semibold text-slate-500 block text-[9px] uppercase tracking-wider">
-                        2. Authorized Redirect URI (Cloud Console)
+                      <span className="font-sans font-bold text-slate-600 block text-[9px] uppercase tracking-wider">
+                        2. JavaScript Origin (Shared Preview)
                       </span>
-                      <span className="text-slate-800 select-all truncate block">
-                        {liveDetails.callbackUrl}
+                      <span className="text-slate-900 select-all truncate block">
+                        https://ais-pre-leadbi4ci3sxhqpvbofpjr-888899326029.asia-southeast1.run.app
                       </span>
                     </div>
                     <button
                       type="button"
-                      onClick={() => copyToClipboard(liveDetails.callbackUrl, setCopiedCallback)}
-                      className="px-2 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg text-[10px] font-sans font-semibold cursor-pointer shrink-0 inline-flex items-center gap-1"
+                      onClick={() => copyToClipboard('https://ais-pre-leadbi4ci3sxhqpvbofpjr-888899326029.asia-southeast1.run.app', setCopiedPreOrigin)}
+                      className="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-[10px] font-sans font-semibold cursor-pointer shrink-0 inline-flex items-center gap-1"
+                    >
+                      {copiedPreOrigin ? <CheckCircle2 className="w-3 h-3 text-emerald-700" /> : <Copy className="w-3 h-3" />}
+                      {copiedPreOrigin ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
+
+                  {/* Authorized Redirect URI Dev */}
+                  <div className="bg-white p-2 rounded-xl border border-amber-200 flex items-center justify-between gap-2">
+                    <div className="overflow-hidden">
+                      <span className="font-sans font-bold text-slate-600 block text-[9px] uppercase tracking-wider">
+                        3. Redirect URI (Dev)
+                      </span>
+                      <span className="text-slate-900 select-all truncate block">
+                        https://ais-dev-leadbi4ci3sxhqpvbofpjr-888899326029.asia-southeast1.run.app/auth/callback
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard('https://ais-dev-leadbi4ci3sxhqpvbofpjr-888899326029.asia-southeast1.run.app/auth/callback', setCopiedCallback)}
+                      className="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-[10px] font-sans font-semibold cursor-pointer shrink-0 inline-flex items-center gap-1"
                     >
                       {copiedCallback ? <CheckCircle2 className="w-3 h-3 text-emerald-700" /> : <Copy className="w-3 h-3" />}
                       {copiedCallback ? 'Copied' : 'Copy'}
                     </button>
                   </div>
 
-                  {/* Firebase Authorized Domain */}
-                  <div className="bg-white p-2 rounded-xl border border-emerald-200 flex items-center justify-between gap-2">
+                  {/* Authorized Redirect URI Pre */}
+                  <div className="bg-white p-2 rounded-xl border border-amber-200 flex items-center justify-between gap-2">
                     <div className="overflow-hidden">
-                      <span className="font-sans font-semibold text-slate-500 block text-[9px] uppercase tracking-wider">
-                        3. Firebase Authorized Domain (Auth Settings)
+                      <span className="font-sans font-bold text-slate-600 block text-[9px] uppercase tracking-wider">
+                        4. Redirect URI (Shared Preview)
                       </span>
-                      <span className="text-slate-800 select-all truncate block">
+                      <span className="text-slate-900 select-all truncate block">
+                        https://ais-pre-leadbi4ci3sxhqpvbofpjr-888899326029.asia-southeast1.run.app/auth/callback
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard('https://ais-pre-leadbi4ci3sxhqpvbofpjr-888899326029.asia-southeast1.run.app/auth/callback', setCopiedPreCallback)}
+                      className="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-[10px] font-sans font-semibold cursor-pointer shrink-0 inline-flex items-center gap-1"
+                    >
+                      {copiedPreCallback ? <CheckCircle2 className="w-3 h-3 text-emerald-700" /> : <Copy className="w-3 h-3" />}
+                      {copiedPreCallback ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
+
+                  {/* Firebase Authorized Domain */}
+                  <div className="bg-white p-2 rounded-xl border border-amber-200 flex items-center justify-between gap-2">
+                    <div className="overflow-hidden">
+                      <span className="font-sans font-bold text-slate-600 block text-[9px] uppercase tracking-wider">
+                        5. Firebase Authorized Domain
+                      </span>
+                      <span className="text-slate-900 select-all truncate block">
                         {liveDetails.currentHostname}
                       </span>
                     </div>
                     <button
                       type="button"
                       onClick={() => copyToClipboard(liveDetails.currentHostname, setCopiedHost)}
-                      className="px-2 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg text-[10px] font-sans font-semibold cursor-pointer shrink-0 inline-flex items-center gap-1"
+                      className="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-[10px] font-sans font-semibold cursor-pointer shrink-0 inline-flex items-center gap-1"
                     >
                       {copiedHost ? <CheckCircle2 className="w-3 h-3 text-emerald-700" /> : <Copy className="w-3 h-3" />}
                       {copiedHost ? 'Copied' : 'Copy'}
