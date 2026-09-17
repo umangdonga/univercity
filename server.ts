@@ -41,13 +41,43 @@ function getGeminiClient(): GoogleGenAI | null {
 }
 
 // Lazy-initialize Supabase Server Client
+const SUPABASE_CONFIG_PATH = path.join(process.cwd(), 'supabase-config.json');
+
+function loadPersistedSupabaseConfig(): { url?: string; anonKey?: string; serviceRoleKey?: string } {
+  try {
+    if (fs.existsSync(SUPABASE_CONFIG_PATH)) {
+      return JSON.parse(fs.readFileSync(SUPABASE_CONFIG_PATH, 'utf-8'));
+    }
+  } catch (e) {
+    console.warn('Could not read supabase-config.json:', e);
+  }
+  return {};
+}
+
+function savePersistedSupabaseConfig(config: { url?: string; anonKey?: string; serviceRoleKey?: string }) {
+  try {
+    const existing = loadPersistedSupabaseConfig();
+    const merged = { ...existing, ...config };
+    fs.writeFileSync(SUPABASE_CONFIG_PATH, JSON.stringify(merged, null, 2), 'utf-8');
+  } catch (e) {
+    console.warn('Could not write supabase-config.json:', e);
+  }
+}
+
 let supabaseServerClient: SupabaseClient | null = null;
 function getSupabaseServerClient(): SupabaseClient | null {
-  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const fileConfig = loadPersistedSupabaseConfig();
+  const supabaseUrl =
+    process.env.VITE_SUPABASE_URL ||
+    process.env.SUPABASE_URL ||
+    fileConfig.url ||
+    'https://vldzpmsasqawuzpxptpb.supabase.co';
   const supabaseKey =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.VITE_SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_ANON_KEY;
+    process.env.SUPABASE_ANON_KEY ||
+    fileConfig.serviceRoleKey ||
+    fileConfig.anonKey;
 
   if (!supabaseUrl || !supabaseKey) {
     return null;
@@ -115,8 +145,17 @@ app.get('/api/health', (req, res) => {
 
 // Configuration endpoint for client (safe public values)
 app.get('/api/config', (req, res) => {
-  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
-  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+  const fileConfig = loadPersistedSupabaseConfig();
+  const supabaseUrl =
+    process.env.VITE_SUPABASE_URL ||
+    process.env.SUPABASE_URL ||
+    fileConfig.url ||
+    'https://vldzpmsasqawuzpxptpb.supabase.co';
+  const supabaseAnonKey =
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    fileConfig.anonKey ||
+    '';
   const googleClientId =
     process.env.VITE_GOOGLE_CLIENT_ID ||
     process.env.GOOGLE_CLIENT_ID ||
@@ -134,6 +173,25 @@ app.get('/api/config', (req, res) => {
     appUrl: getBaseUrl(req),
     liveOrigin: getBaseUrl(req),
     callbackUrl: `${getBaseUrl(req)}/auth/callback`,
+  });
+});
+
+// Update Supabase configuration endpoint
+app.post('/api/config/supabase', (req, res) => {
+  const { anonKey, serviceRoleKey, url } = req.body;
+  const projectUrl = (url && typeof url === 'string' && url.trim()) || 'https://vldzpmsasqawuzpxptpb.supabase.co';
+  savePersistedSupabaseConfig({
+    url: projectUrl,
+    anonKey: anonKey ? String(anonKey).trim() : undefined,
+    serviceRoleKey: serviceRoleKey ? String(serviceRoleKey).trim() : undefined,
+  });
+  supabaseServerClient = null; // force re-initialization
+  const client = getSupabaseServerClient();
+  res.json({
+    success: true,
+    configured: Boolean(client),
+    url: projectUrl,
+    message: 'Supabase credentials saved successfully',
   });
 });
 

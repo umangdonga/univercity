@@ -3,10 +3,40 @@ import { createClient, SupabaseClient, User as SupabaseUser, Session } from '@su
 // Configuration state
 let supabaseClient: SupabaseClient | null = null;
 let supabaseConfig = {
-  url: import.meta.env.VITE_SUPABASE_URL || '',
-  anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+  url: import.meta.env.VITE_SUPABASE_URL || 'https://vldzpmsasqawuzpxptpb.supabase.co',
+  anonKey:
+    import.meta.env.VITE_SUPABASE_ANON_KEY ||
+    (typeof window !== 'undefined' ? localStorage.getItem('campus_connect_supabase_key') || '' : ''),
   googleClientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
 };
+
+// Save Supabase credentials directly from UI or chat
+export async function saveSupabaseClientConfig(anonKey: string, url?: string): Promise<boolean> {
+  const finalUrl = (url && url.trim()) || 'https://vldzpmsasqawuzpxptpb.supabase.co';
+  const cleanKey = anonKey.trim();
+  supabaseConfig.url = finalUrl;
+  supabaseConfig.anonKey = cleanKey;
+
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('campus_connect_supabase_key', cleanKey);
+    localStorage.setItem('campus_connect_supabase_url', finalUrl);
+  }
+
+  supabaseClient = null;
+
+  try {
+    await fetch('/api/config/supabase', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ anonKey: cleanKey, url: finalUrl }),
+    });
+  } catch (e) {
+    console.warn('Could not persist to /api/config/supabase:', e);
+  }
+
+  const result = await initSupabaseConfig();
+  return result.isConfigured;
+}
 
 // Initialize or fetch Supabase client lazily
 export async function initSupabaseConfig(): Promise<{
