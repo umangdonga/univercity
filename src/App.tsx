@@ -109,68 +109,26 @@ const MainAppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#BADDF2]/70 sm:bg-gradient-to-br sm:from-[#BADDF2] sm:via-[#cbe4f6] sm:to-[#BADDF2] flex flex-col items-center justify-start text-[#101214] font-['Poppins',sans-serif] relative overflow-x-hidden">
-      {/* Device View Switcher for Desktop Preview */}
-      <header className="w-full bg-[#101214] border-b border-slate-800/80 px-4 py-2.5 flex items-center justify-between text-xs text-slate-300 z-50 shadow-md">
-        <div className="flex items-center gap-2.5">
-          <div className="w-6 h-6 rounded-lg bg-[#263D88] flex items-center justify-center font-bold text-white text-xs shadow-xs">
-            C
-          </div>
-          <span className="font-bold text-white tracking-wide">CAMPUS CONNECT</span>
-          <span className="hidden sm:inline text-slate-400">• Smart campus life, all in one place</span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setDeviceView('mobile')}
-            className={`px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-              deviceView === 'mobile'
-                ? 'bg-slate-700 text-white shadow-xs'
-                : 'bg-slate-800 text-slate-400 hover:text-white'
-            }`}
-          >
-            <Smartphone className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Phone Frame</span>
-          </button>
-
-          <button
-            onClick={() => setDeviceView('responsive')}
-            className={`px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-              deviceView === 'responsive'
-                ? 'bg-slate-700 text-white shadow-xs'
-                : 'bg-slate-800 text-slate-400 hover:text-white'
-            }`}
-          >
-            <Monitor className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Expanded</span>
-          </button>
-        </div>
-      </header>
-
+    <div className="min-h-screen bg-white flex flex-col text-[#101214] font-['Poppins',sans-serif] relative overflow-x-hidden">
       {/* Main Canvas Area */}
-      <div className="w-full flex-1 flex items-center justify-center p-0 sm:p-4 lg:p-6 relative">
-        {/* The Mobile App Shell / Expanded View */}
-        <div
-          className={`w-full transition-all duration-300 relative bg-white flex flex-col ${
-            deviceView === 'mobile'
-              ? 'max-w-[420px] sm:w-[400px] h-[100dvh] sm:h-[840px] my-0 sm:my-2 sm:rounded-[36px] shadow-2xl sm:border-[6px] sm:border-[#101214] overflow-hidden'
-              : 'max-w-4xl shadow-2xl rounded-2xl border border-slate-200 overflow-hidden min-h-[850px]'
-          }`}
-        >
-          {/* Scrollable Screen Content */}
-          <div className="flex-1 overflow-y-auto relative" style={{ scrollbarWidth: 'thin' }}>
-            {renderTabContent()}
-          </div>
-
-          {/* Sticky Global Bottom Navigation (hide when search or sub-service is open) */}
-          {!isSearchOpen && !activeService && <BottomNav />}
-
-          {/* Modals & Overlays */}
-          <AppointmentPassModal />
-          <BusPassModal />
-          <NotificationDetailModal />
-          <Toast />
+      <div className="w-full h-[100dvh] flex flex-col relative mx-auto">
+        {/* Scrollable Screen Content */}
+        <div className="flex-1 overflow-y-auto relative w-full" style={{ scrollbarWidth: 'thin' }}>
+          {renderTabContent()}
         </div>
+
+        {/* Sticky Global Bottom Navigation (hide when search or sub-service is open) */}
+        {!isSearchOpen && !activeService && (
+          <div className="w-full max-w-screen-xl mx-auto">
+            <BottomNav />
+          </div>
+        )}
+
+        {/* Modals & Overlays */}
+        <AppointmentPassModal />
+        <BusPassModal />
+        <NotificationDetailModal />
+        <Toast />
       </div>
     </div>
   );
